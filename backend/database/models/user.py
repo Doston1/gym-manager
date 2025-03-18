@@ -2,7 +2,7 @@ from sqlalchemy import Column, Integer, String, Date, Boolean, ForeignKey, Enum,
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 import enum
-from ..base import Base
+from ....backend import Base
 
 class GenderEnum(enum.Enum):
     Male = "Male"

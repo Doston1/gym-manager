@@ -10,7 +10,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from authlib.integrations.starlette_client import OAuth
 from nicegui import ui
 from sqlalchemy.orm import Session
-from database.database import SessionLocal, User, get_db
+from backend.database.database import SessionLocal, User, get_db
 
 # 🔹 CONFIGURATION
 API_HOST = "127.0.0.1"

@@ -1,4 +1,4 @@
-from .base import engine, Base, get_db, SessionLocal
+from ...backend import engine, Base, get_db, SessionLocal
 
 # Import all models to ensure they're registered with SQLAlchemy
 from .models.user import User, Member, Trainer, Manager
