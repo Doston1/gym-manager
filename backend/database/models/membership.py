@@ -2,7 +2,7 @@ from sqlalchemy import Column, Integer, String, Date, Boolean, ForeignKey, Enum,
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 import enum
-from ....backend import Base
+from ..base import Base
 
 class PaymentStatusEnum(enum.Enum):
     Pending = "Pending"

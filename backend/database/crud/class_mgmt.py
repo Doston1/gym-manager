@@ -33,6 +33,9 @@ def delete_class_type(db: Session, class_type_id: int):
     return False
 
 # Class-specific functions
+def get_all_classes(db: Session):
+    return db.query(Class).all()
+
 def get_class_by_id(db: Session, class_id: int):
     return db.query(Class).filter(Class.class_id == class_id).first()
 

@@ -2,7 +2,7 @@ from sqlalchemy import Column, Integer, String, Boolean, Time, Enum, DateTime, T
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 import enum
-from ....backend import Base
+from ..base import Base
 
 class DayOfWeekEnum(enum.Enum):
     Monday = "Monday"

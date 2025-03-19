@@ -3,9 +3,6 @@ from fastapi import FastAPI, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from authlib.integrations.starlette_client import OAuth
-from sqlalchemy.orm import Session
-from backend.database import get_db, User
-from backend.utils.session import user_sessions
 
 # Load environment variables
 API_HOST = "127.0.0.1"
