@@ -11,6 +11,6 @@ def run_api():
 def run_ui():
     ui.run(port=8080, title="GYMO")
 
-if __name__ == "__main__":
-    threading.Thread(target=run_api, daemon=True).start()
-    run_ui()
+# if __name__ == "__main__":
+#     threading.Thread(target=run_api, daemon=True).start()
+#     run_ui()

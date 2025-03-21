@@ -224,6 +224,6 @@ def run_ui():
     ui.run(port=UI_PORT, title="GYMO - Auth0 Authentication", favicon="💪")
 
 
-if __name__ in {"__main__", "__mp_main__"}:
-    threading.Thread(target=run_api, daemon=True).start()
-    run_ui()
+# if __name__ in {"__main__", "__mp_main__"}:
+#     threading.Thread(target=run_api, daemon=True).start()
+#     run_ui()

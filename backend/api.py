@@ -3,6 +3,8 @@ from fastapi import FastAPI, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from authlib.integrations.starlette_client import OAuth
+from backend.utils.session import get_user_session
+
 
 # Load environment variables
 API_HOST = "127.0.0.1"
@@ -28,9 +30,17 @@ setup_auth_routes(api)
 
 # API Routes (import from routes folder)
 from backend.routes import users, classes, training
-api.include_router(users.router)
+api.include_router(users.router) 
 api.include_router(classes.router)
 api.include_router(training.router)
+
+@api.get("/check-session")
+async def check_session(user_id: str):
+    """Check if the user session exists."""
+    session = get_user_session(user_id)
+    if session:
+        return session
+    return {"error": "User not found"}
 
 # Run API
 if __name__ == "__main__":

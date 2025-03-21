@@ -5,6 +5,7 @@ user_sessions: Dict[str, dict] = {}
 
 def get_user_session(user_id: str):
     """Retrieve user session details."""
+    print("DEBUG:session.py, user_sessions:", user_sessions)
     return user_sessions.get(user_id)
 
 def set_user_session(user_id: str, user_info: dict):
