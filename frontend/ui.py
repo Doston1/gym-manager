@@ -1,19 +1,26 @@
 import multiprocessing
-from nicegui import ui, app
-from starlette.middleware.sessions import SessionMiddleware
+from nicegui import ui
 
-
-
-app.add_middleware(
-    SessionMiddleware,
-    secret_key='your_secret_key',  # use a secure, random key in production
-    max_age=3600,                  # optional, sets cookie lifetime in seconds
-    # other SessionMiddleware settings...
-)
 # Import page components
 from .pages.home_page import home_page
 from .pages.classes import classes_page
 from .pages.training import training_page
+
+ui.add_head_html('''
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    if (window.location.hash.includes('id_token')) {
+        const hashParams = new URLSearchParams(window.location.hash.substr(1));
+        const token = hashParams.get('id_token');
+        if (token) {
+            localStorage.setItem('token', token);
+            window.location.hash = '';  // Remove token from URL
+        }
+    }
+});
+</script>
+''')
+
 # Define UI Pages
 ui.page('/')(home_page)
 ui.page('/classes')(classes_page)
