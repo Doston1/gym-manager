@@ -1,6 +1,15 @@
 import multiprocessing
-from nicegui import ui
+from nicegui import ui, app
+from starlette.middleware.sessions import SessionMiddleware
 
+
+
+app.add_middleware(
+    SessionMiddleware,
+    secret_key='your_secret_key',  # use a secure, random key in production
+    max_age=3600,                  # optional, sets cookie lifetime in seconds
+    # other SessionMiddleware settings...
+)
 # Import page components
 from .pages.home_page import home_page
 from .pages.classes import classes_page
