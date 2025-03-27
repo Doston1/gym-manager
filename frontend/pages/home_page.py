@@ -39,8 +39,8 @@ async def home_page(user_id: str = None):
             # Welcome message for non-logged-in users
             ui.label('Welcome to Gym Manager').classes('text-3xl font-bold text-center mb-4')
             ui.label('Your complete solution for managing gym activities, classes, and training plans.').classes('text-lg text-center mb-6')
-            # ui.button('Login/Register', on_click=lambda: ui.navigate.to(f'http://{API_HOST}:{API_PORT}/login')).classes('w-1/2 bg-blue-500 text-white mb-6')
-            ui.button('Login/Register', on_click=login).classes('w-1/2 bg-blue-500 text-white mb-6')
+            ui.button('Login/Register', on_click=lambda: ui.navigate.to(f'http://{API_HOST}:{API_PORT}/login')).classes('w-1/2 bg-blue-500 text-white mb-6')
+            # ui.button('Login/Register', on_click=login).classes('w-1/2 bg-blue-500 text-white mb-6')
 
         # Three columns for additional options
         with ui.row().classes('gap-4 justify-center'):

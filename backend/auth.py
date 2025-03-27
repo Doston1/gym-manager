@@ -37,11 +37,22 @@ async def get_current_user(request: Request):
 
 
 def setup_auth_routes(api: FastAPI):
+    print("✅ auth.py is being loaded")
+
+    @api.get("/test-auth")
+    async def test_auth():
+        return {"message": "Auth route is alive"}
+
     @api.get("/login")
     async def login(request: Request):
         print("DEBUG:auth.py, login function")
         redirect_uri = "http://127.0.0.1:8000/callback"
-        return await oauth.auth0.authorize_redirect(request, redirect_uri)
+        try:
+            return await oauth.auth0.authorize_redirect(request, redirect_uri)
+        except Exception as e:
+            print("ERROR during authorize_redirect:", e)
+            raise HTTPException(status_code=500, detail="Login failed")
+        # return await oauth.auth0.authorize_redirect(request, redirect_uri)
 
     @api.get("/callback")
     async def callback(request: Request, db: Session = Depends(get_db)):
@@ -87,3 +98,5 @@ def setup_auth_routes(api: FastAPI):
     @api.get("/me")
     async def me(user: dict = Depends(get_current_user)):
         return {"user_id": user["sub"], "email": user["email"], "name": user["name"]}
+    
+    

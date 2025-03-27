@@ -23,8 +23,19 @@ api.add_middleware(
     allow_headers=["*"],
 )
 
+print(f"api object: {api}")
+
+
+@api.get("/testos2")
+def test_os():
+    return {"message": "OS test route is alive"}
+
 # Authentication (moved to backend/auth.py)
 setup_auth_routes(api)
+
+@api.get("/testos")
+def test_os():
+    return {"message": "OS test route is alive"}
 
 # API Routes (import from routes folder)
 from backend.routes import users, classes, training
