@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 # from starlette.middleware.sessions import SessionMiddleware
 from authlib.integrations.starlette_client import OAuth
 from backend.auth import setup_auth_routes
+from starlette.middleware.sessions import SessionMiddleware
 
 
 # Load environment variables
@@ -14,6 +15,10 @@ SECRET_KEY = os.getenv("APP_SECRET_KEY", "your-secret-key")
 # Initialize FastAPI
 api = FastAPI()
 
+api.add_middleware(
+    SessionMiddleware,
+    secret_key=SECRET_KEY  # a strong random string
+)
 # Middleware
 api.add_middleware(
     CORSMiddleware,
@@ -22,13 +27,6 @@ api.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-print(f"api object: {api}")
-
-
-@api.get("/testos2")
-def test_os():
-    return {"message": "OS test route is alive"}
 
 # Authentication (moved to backend/auth.py)
 setup_auth_routes(api)

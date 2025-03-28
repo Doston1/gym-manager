@@ -6,23 +6,31 @@ from sqlalchemy.orm import Session
 from backend.database import get_db, User
 from backend.utils.oauth import get_oauth
 from frontend.config import API_HOST, UI_PORT, AUTH0_CLIENT_ID, AUTH0_DOMAIN, AUTH0_AUDIENCE  # Import environment variables
-from jose import jwt, JWTError
+from jose import jwt, JWTError, ExpiredSignatureError
+
 
 
 oauth = get_oauth()
 
 def verify_jwt(token: str):
-    jwks_url = f'https://{AUTH0_DOMAIN}/.well-known/jwks.json'
-    jwks = requests.get(jwks_url).json()
-    unverified_header = jwt.get_unverified_header(token)
-    rsa_key = next((key for key in jwks["keys"] if key["kid"] == unverified_header["kid"]), None)
-    if rsa_key:
-        payload = jwt.decode(
-            token, rsa_key, algorithms=['RS256'],
-            audience=AUTH0_AUDIENCE, issuer=f'https://{AUTH0_DOMAIN}/'
-        )
-        return payload
-    raise JWTError('Token invalid')
+    try:
+        print("DEBUG: auth.pt - verify_jwt AUTH0_AUDIENCE:", AUTH0_AUDIENCE)
+        jwks_url = f'https://{AUTH0_DOMAIN}/.well-known/jwks.json'
+        jwks = requests.get(jwks_url).json()
+        unverified_header = jwt.get_unverified_header(token)
+        rsa_key = next((key for key in jwks["keys"] if key["kid"] == unverified_header["kid"]), None)
+        if rsa_key:
+            payload = jwt.decode(
+                token, rsa_key, algorithms=['RS256'],
+                audience=AUTH0_AUDIENCE, issuer=f'https://{AUTH0_DOMAIN}/'
+            )
+            return payload
+    except ExpiredSignatureError:
+        print("❌ Token expired")
+        raise
+    except JWTError as e:
+        print(f"❌ Token verification failed: {e}")
+        raise
 
 async def get_current_user(request: Request):
     auth_header = request.headers.get('Authorization', '')
@@ -37,12 +45,6 @@ async def get_current_user(request: Request):
 
 
 def setup_auth_routes(api: FastAPI):
-    print("✅ auth.py is being loaded")
-
-    @api.get("/test-auth")
-    async def test_auth():
-        return {"message": "Auth route is alive"}
-
     @api.get("/login")
     async def login(request: Request):
         print("DEBUG:auth.py, login function")
@@ -84,7 +86,7 @@ def setup_auth_routes(api: FastAPI):
 
             print("DEBUG:auth.py, db_user:", db_user.user_id)    
             id_token = token.get('id_token')
-            frontend_redirect = f"http://127.0.0.1:8080#id_token={id_token}"
+            frontend_redirect = f"http://127.0.0.1:8080/static/callback.html#id_token={id_token}"
             return RedirectResponse(url=frontend_redirect)
         return RedirectResponse(url="http://127.0.0.1:8080/login-failed")
 
@@ -97,6 +99,7 @@ def setup_auth_routes(api: FastAPI):
 
     @api.get("/me")
     async def me(user: dict = Depends(get_current_user)):
+        print("DEBUG: /me route - user =", user)
         return {"user_id": user["sub"], "email": user["email"], "name": user["name"]}
     
     

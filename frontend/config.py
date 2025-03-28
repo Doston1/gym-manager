@@ -12,4 +12,5 @@ UI_PORT = os.getenv("UI_PORT", "8080")
 AUTH0_CLIENT_ID = os.getenv("AUTH0_CLIENT_ID", "your-client-id")
 AUTH0_CLIENT_SECRET = os.getenv("AUTH0_CLIENT_SECRET", "your-client-secret")
 AUTH0_DOMAIN = os.getenv("AUTH0_DOMAIN", "your-auth0-domain")
-AUTH0_AUDIENCE = os.getenv("AUTH_AUDIENCE", "your-auth0-audience")
+AUTH0_AUDIENCE = os.getenv("AUTH0_AUDIENCE", "your-auth0-audience")
+# AUTH0_AUDIENCE2=https://dev-eyhbmr7bi2rh61op.eu.auth0.com/api/v2/
