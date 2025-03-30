@@ -7,20 +7,6 @@ from .pages.home_page import home_page
 from .pages.classes import classes_page
 from .pages.training import training_page
 
-# ui.add_head_html('''
-# <script>
-# document.addEventListener('DOMContentLoaded', () => {
-#     if (window.location.hash.includes('id_token')) {
-#         const hashParams = new URLSearchParams(window.location.hash.substr(1));
-#         const token = hashParams.get('id_token');
-#         if (token) {
-#             localStorage.setItem('token', token);
-#             window.location.hash = '';  // Remove token from URL
-#         }
-#     }
-# });
-# </script>
-# ''')
 
 app.add_static_files('/static', 'frontend/static')
 

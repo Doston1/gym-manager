@@ -16,15 +16,20 @@ async def home_page(user_id: str = None):
             ui.button('Working Hours', on_click=lambda: ui.navigate.to('/work-hours')).classes('text-white')
             ui.button('Classes', on_click=lambda: ui.navigate.to('/classes')).classes('text-white')
             ui.button('Training Plans', on_click=lambda: ui.navigate.to('/training-plans')).classes('text-white')
-            # if user_id:
             if user:
-                # Dropdown for logged-in user
-                with ui.menu().classes('text-white'):
-                    ui.button('My Profile', on_click=lambda: ui.navigate.to(f'/profile'))
-                    ui.button('My Bookings', on_click=lambda: ui.navigate.to(f'/bookings'))
-                    ui.button('My Plans', on_click=lambda: ui.navigate.to(f'/plans'))
-                    # ui.button('Logout', on_click=lambda: ui.navigate.to(f'http://{API_HOST}:{API_PORT}/logout'))
-                    ui.button('Logout', on_click=logout)
+                with ui.column():
+                    user_button = ui.button(f'👤 {user.get("name", "Account")} ▾').classes('text-white')
+                    user_menu = ui.menu().props('auto-close').classes('bg-white text-black shadow-md rounded-md')
+
+                    # with ui.menu():
+                    with user_menu:
+                        ui.menu_item('My Profile', on_click=lambda: ui.navigate.to('/profile'))
+                        ui.menu_item('My Bookings', on_click=lambda: ui.navigate.to('/bookings'))
+                        ui.menu_item('My Plans', on_click=lambda: ui.navigate.to('/plans'))
+                        ui.menu_item('Logout', on_click=logout)
+                    # user_button.on('click', lambda: ui.open_menu(user_button))
+                    user_button.on('click', user_menu.open)
+
 
     # Main content
     with ui.card().classes('w-full p-6'):
