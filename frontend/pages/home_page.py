@@ -23,9 +23,9 @@ async def home_page(user_id: str = None):
 
                     # with ui.menu():
                     with user_menu:
-                        ui.menu_item('My Profile', on_click=lambda: ui.navigate.to('/profile'))
-                        ui.menu_item('My Bookings', on_click=lambda: ui.navigate.to('/bookings'))
-                        ui.menu_item('My Plans', on_click=lambda: ui.navigate.to('/plans'))
+                        ui.menu_item('My Profile', on_click=lambda: ui.navigate.to('/myprofile'))
+                        ui.menu_item('My Bookings', on_click=lambda: ui.navigate.to('/mybookings'))
+                        ui.menu_item('My Plans', on_click=lambda: ui.navigate.to('/mytrainingplans'))
                         ui.menu_item('Logout', on_click=logout)
                     # user_button.on('click', lambda: ui.open_menu(user_button))
                     user_button.on('click', user_menu.open)
@@ -37,7 +37,7 @@ async def home_page(user_id: str = None):
         if user:
             ui.label(f'Hello, {user.get("name", "User")}!').classes('text-lg text-center mb-2')
             ui.label(f'Email: {user.get("email", "No email")}').classes('text-sm text-center mb-4')
-            ui.button('Personal Area', on_click=lambda: ui.navigate.to(f'/personal-area')).classes('w-full bg-blue-500 text-white mb-2')
+            ui.button('My Profile', on_click=lambda: ui.navigate.to(f'/myprofile')).classes('w-full bg-blue-500 text-white mb-2')
         # else:
         #     ui.label('Session expired. Please log in again.').classes('text-center mb-4')
         #     ui.button('Login with Auth0', on_click=lambda: ui.navigate.to(f'http://{API_HOST}:{API_PORT}/login')).classes('w-full bg-blue-500 text-white')

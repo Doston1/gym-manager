@@ -1,8 +1,9 @@
+import enum
 from sqlalchemy.orm import Session
 from ..models.user import User, Member, Trainer, Manager, UserTypeEnum, GenderEnum
 
 def get_user_by_id(db: Session, user_id: int):
-    return db.query(User).filter(User.user_id == user_id).first()
+    return db.query(User).filter(User.firebase_uid == user_id).first()
 
 def get_user_by_email(db: Session, email: str):
     return db.query(User).filter(User.email == email).first()
@@ -34,9 +35,14 @@ def create_user(db: Session, user_data: dict):
     return db_user
 
 def update_user(db: Session, user_id: int, user_data: dict):
+    print(f'DEBUG: update_user: user_id={user_id}, user_data={user_data}')
     db_user = get_user_by_id(db, user_id)
+    # if isinstance(user_data.get('gender'), GenderEnum):
+    #     user_data['gender'] = user_data['gender'].value
     if db_user:
         for key, value in user_data.items():
+            if isinstance(value, enum.Enum):
+                value = value.value
             setattr(db_user, key, value)
         db.commit()
         db.refresh(db_user)

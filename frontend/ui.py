@@ -6,6 +6,9 @@ import asyncio
 from .pages.home_page import home_page
 from .pages.classes import classes_page
 from .pages.training import training_page
+from .pages.profile import profile_page
+from .pages.mybookings import mybookings_page
+from .pages.mytrainingplans import mytrainingplans_page
 
 
 app.add_static_files('/static', 'frontend/static')
@@ -15,6 +18,9 @@ app.add_static_files('/static', 'frontend/static')
 ui.page('/')(home_page)
 ui.page('/classes')(classes_page)
 ui.page('/training-plans')(training_page)
+ui.page('/myprofile')(profile_page)
+ui.page('/mybookings')(mybookings_page)
+ui.page('/mytrainingplans')(mytrainingplans_page)
 
 @ui.page('/callback')
 async def callback_page():

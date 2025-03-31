@@ -1,0 +1,32 @@
+from nicegui import ui
+import httpx
+from frontend.config import API_HOST, API_PORT
+from .home_page import get_current_user
+
+
+async def mybookings_page():
+    user = await get_current_user()
+    if not user:
+        ui.label('You must be logged in to view this page.').classes('text-center text-red-500')
+        ui.button('Login', on_click=lambda: ui.navigate.to(f'http://{API_HOST}:{API_PORT}/login')).classes('bg-blue-500 text-white')
+        return
+
+    async with httpx.AsyncClient() as client:
+        response = await client.get(f'http://{API_HOST}:{API_PORT}/users/{user["user_id"]}/bookings')
+        if response.status_code == 200:
+            bookings = response.json()
+        else:
+            bookings = []
+
+    with ui.card().classes('w-full p-6'):
+        ui.label('My Bookings').classes('text-3xl font-bold text-center mb-4')
+
+        if bookings:
+            for booking in bookings:
+                with ui.card().classes('mb-4 p-4'):
+                    ui.label(f'Class: {booking["class_name"]}').classes('text-lg font-bold')
+                    ui.label(f'Trainer: {booking["trainer_name"]}')
+                    ui.label(f'Date: {booking["date"]}')
+                    ui.label(f'Time: {booking["time"]}')
+        else:
+            ui.label('You have no bookings.').classes('text-center text-gray-500')

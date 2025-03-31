@@ -78,7 +78,7 @@ def setup_auth_routes(api: FastAPI):
                     gender="male",
                     profile_image_path="temp_profile_image_path",
                     user_type="member",
-                    firebase_uid=user_info["sid"]
+                    firebase_uid=user_info["sub"]
                     )
                 db.add(db_user)
                 db.commit()

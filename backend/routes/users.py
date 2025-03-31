@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.database.models.user import User
@@ -15,41 +15,28 @@ def get_user_endpoint(user_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="User not found")
     return user
 
-# def get_user(user_id: int, db: Session = Depends(get_db)):
-#     user = db.query(User).filter(User.user_id == user_id).first()
-#     if not user:
-#         raise HTTPException(status_code=404, detail="User not found")
-#     return user
-
 @router.post("/", response_model=UserResponse)
 def create_user_endpoint(user: UserCreate, db: Session = Depends(get_db)):
     try:
         return create_user(db, user.dict())
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    
-# def create_user(user: UserCreate, db: Session = Depends(get_db)):
-#     db.add(user)
-#     db.commit()
-#     db.refresh(user)
-#     return user
 
 @router.put("/{user_id}", response_model=UserResponse)
-def update_user_endpoint(user_id: int, user_update: UserUpdate, db: Session = Depends(get_db)):
-    user = update_user(db, user_id, user_update.dict(exclude_unset=True))
+async def update_user_endpoint(user_id: str, request: Request, db: Session = Depends(get_db)):
+    print(f'DEBUGL update_user_endpoint: user_id={user_id}')
+    try:
+        data = await request.json()
+        print(f"🔥 RAW REQUEST BODY: {data}")
+        validated = UserUpdate(**data)
+    except Exception as e:
+        print(f"❌ Validation error: {e}")
+        raise HTTPException(status_code=422, detail=str(e))
+
+    user = update_user(db, user_id, validated.dict(exclude_unset=True))
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return user
-
-# def update_user(user_id: int, updated_data: dict, db: Session = Depends(get_db)):
-#     user = db.query(User).filter(User.user_id == user_id).first()
-#     if not user:
-#         raise HTTPException(status_code=404, detail="User not found")
-#     for key, value in updated_data.items():
-#         setattr(user, key, value)
-#     db.commit()
-#     db.refresh(user)
-#     return user
 
 
 @router.delete("/{user_id}")
@@ -58,10 +45,3 @@ def delete_user_endpoint(user_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="User not found")
     return {"detail": "User deleted successfully"}
  
-# def delete_user(user_id: int, db: Session = Depends(get_db)):
-#     user = db.query(User).filter(User.user_id == user_id).first()
-#     if not user:
-#         raise HTTPException(status_code=404, detail="User not found")
-#     db.delete(user)
-#     db.commit()
-#     return {"message": "User deleted successfully"}
