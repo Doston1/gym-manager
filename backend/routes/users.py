@@ -9,7 +9,7 @@ from backend.database.crud.user import create_user, get_user_by_id, update_user,
 router = APIRouter(prefix="/users", tags=["Users"])
 
 @router.get("/{user_id}", response_model=UserResponse)
-def get_user_endpoint(user_id: int, db: Session = Depends(get_db)):
+def get_user_endpoint(user_id: str, db: Session = Depends(get_db)):  # Changed user_id to str
     user = get_user_by_id(db, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -23,7 +23,7 @@ def create_user_endpoint(user: UserCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.put("/{user_id}", response_model=UserResponse)
-async def update_user_endpoint(user_id: str, request: Request, db: Session = Depends(get_db)):
+async def update_user_endpoint(user_id: str, request: Request, db: Session = Depends(get_db)):  # Ensure user_id is str
     print(f'DEBUGL update_user_endpoint: user_id={user_id}')
     try:
         data = await request.json()
@@ -40,8 +40,7 @@ async def update_user_endpoint(user_id: str, request: Request, db: Session = Dep
 
 
 @router.delete("/{user_id}")
-def delete_user_endpoint(user_id: int, db: Session = Depends(get_db)):
+def delete_user_endpoint(user_id: str, db: Session = Depends(get_db)):  # Changed user_id to str
     if not delete_user(db, user_id):
         raise HTTPException(status_code=404, detail="User not found")
     return {"detail": "User deleted successfully"}
- 

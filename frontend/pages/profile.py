@@ -6,30 +6,51 @@ from .home_page import get_current_user
 
 
 async def profile_page():
+    # Apply a dark blue background across the page
+    ui.query('body').style('background: linear-gradient(to bottom, #001f3f, #001a33); color: white; font-family: "Orbitron", sans-serif;')
+
+    # Navbar
+    with ui.header().classes('bg-transparent text-white p-4 flex justify-between items-center shadow-lg backdrop-blur-md'):
+        ui.label('Gym Manager').classes('text-2xl font-bold cursor-pointer hover:scale-105 transition-transform').on('click', lambda: ui.navigate.to('/'))
+        with ui.row().classes('gap-4'):
+            ui.button('Home', on_click=lambda: ui.navigate.to('/')).classes('text-white hover:text-blue-300')
+            ui.button('Working Hours', on_click=lambda: ui.navigate.to('/work-hours')).classes('text-white hover:text-blue-300')
+            ui.button('Classes', on_click=lambda: ui.navigate.to('/classes')).classes('text-white hover:text-blue-300')
+            ui.button('Training Plans', on_click=lambda: ui.navigate.to('/training-plans')).classes('text-white hover:text-blue-300')
+
     user = await get_current_user()
     if not user:
         ui.label('You must be logged in to view this page.').classes('text-center text-red-500')
         ui.button('Login', on_click=lambda: ui.navigate.to(f'http://{API_HOST}:{API_PORT}/login')).classes('bg-blue-500 text-white')
         return
+    else:
+        # Get from backend the full user object
+        async with httpx.AsyncClient() as client:
+            response = await client.get(f'http://{API_HOST}:{API_PORT}/users/{user["user_id"]}')
+            if response.status_code == 200:
+                user = response.json()
+            else:
+                ui.notify('Failed to fetch user data.', type='error')
+                return
 
-    with ui.card().classes('w-full p-6'):
-        ui.label('My Profile').classes('text-3xl font-bold text-center mb-4')
+        with ui.card().classes('w-full p-6 bg-gray-900 rounded-lg shadow-lg'):
+            ui.label('My Profile').classes('text-3xl font-bold text-center mb-4 text-blue-300')
 
-        # Display user details
-        with ui.column().classes('space-y-4'):
-            ui.input('First Name', value=user.get('first_name')).bind_value(user, 'first_name')
-            ui.input('Last Name', value=user.get('last_name')).bind_value(user, 'last_name')
-            ui.input('Email', value=user.get('email')).props('readonly')
-            ui.input('Phone', value=user.get('phone')).bind_value(user, 'phone')
-            ui.input('Date of Birth', value=user.get('date_of_birth')).bind_value(user, 'date_of_birth')
-            ui.select(['Male', 'Female', 'Other'], value=user.get('gender')).bind_value(user, 'gender')
+            # Display user details with improved form visibility
+            with ui.column().classes('space-y-4'):
+                ui.input('First Name', value=user.get('first_name')).bind_value(user, 'first_name').classes('bg-gray-700 text-white border border-gray-500 rounded-md')
+                ui.input('Last Name', value=user.get('last_name')).bind_value(user, 'last_name').classes('bg-gray-700 text-white border border-gray-500 rounded-md')
+                ui.input('Email', value=user.get('email')).props('readonly').classes('bg-gray-700 text-white border border-gray-500 rounded-md')
+                ui.input('Phone', value=user.get('phone')).bind_value(user, 'phone').classes('bg-gray-700 text-white border border-gray-500 rounded-md')
+                ui.input('Date of Birth', value=user.get('date_of_birth')).bind_value(user, 'date_of_birth').classes('bg-gray-700 text-white border border-gray-500 rounded-md')
+                ui.select(['Male', 'Female', 'Other'], value=user.get('gender')).bind_value(user, 'gender').classes('bg-gray-700 text-white border border-gray-500 rounded-md')
 
-            # Profile image upload
-            ui.label('Profile Image').classes('text-lg')
-            ui.upload(on_upload=lambda file: upload_profile_image(file, user['user_id'])).props('accept=".jpg,.png"')
+                # Profile image upload
+                ui.label('Profile Image').classes('text-lg')
+                ui.upload(on_upload=lambda file: upload_profile_image(file, user['user_id'])).props('accept=".jpg,.png"')
 
-        # Save button
-        ui.button('Save Changes', on_click=lambda: save_profile(user)).classes('bg-blue-500 text-white')
+            # Save button
+            ui.button('Save Changes', on_click=lambda: save_profile(user)).classes('bg-cyan-500 text-white rounded-full hover:bg-cyan-600 transition-colors')
 
 async def upload_profile_image(file, user_id):
     async with httpx.AsyncClient() as client:
