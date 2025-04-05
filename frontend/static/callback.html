@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Logging In...</title>
+    <script>
+      window.onload = () => {
+        const hashParams = new URLSearchParams(window.location.hash.substr(1));
+        const token = hashParams.get("id_token");
+        if (token) {
+          localStorage.setItem("token", token);
+          window.location.hash = "";
+        }
+        // redirect to the home page
+        window.location.href = "/";
+      };
+    </script>
+  </head>
+  <body>
+    <h2>Logging you in...</h2>
+  </body>
+</html>

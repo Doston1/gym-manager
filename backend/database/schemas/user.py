@@ -1,6 +1,6 @@
 from pydantic import BaseModel, EmailStr
 from typing import Optional
-from datetime import date
+from datetime import date, datetime
 import enum
 from ..base import Base
 
@@ -22,9 +22,11 @@ class UserBase(BaseModel):
     last_name: str
     phone: Optional[str]
     date_of_birth: Optional[date]
-    gender: Optional[GenderEnum]
+    # gender: Optional[GenderEnum]
+    gender: Optional[str]
     profile_image_path: Optional[str]
-    user_type: UserTypeEnum
+    # user_type: UserTypeEnum
+    user_type : str
     is_active: Optional[bool] = True
 
 # Schema for creating a new user
@@ -33,19 +35,19 @@ class UserCreate(UserBase):
 
 # Schema for updating an existing user
 class UserUpdate(BaseModel):
-    first_name: Optional[str]
-    last_name: Optional[str]
-    phone: Optional[str]
-    date_of_birth: Optional[date]
-    gender: Optional[GenderEnum]
-    profile_image_path: Optional[str]
-    is_active: Optional[bool]
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    phone: Optional[str] = None
+    date_of_birth: Optional[date] = None
+    gender: Optional[GenderEnum] = None
+    profile_image_path: Optional[str] = None
+    is_active: Optional[bool] = None
 
 # Schema for returning user data
 class UserResponse(UserBase):
     user_id: int
-    created_at: Optional[date]
-    updated_at: Optional[date]
+    created_at: Optional[datetime]
+    updated_at: Optional[datetime]
 
     class Config:
         orm_mode = True
