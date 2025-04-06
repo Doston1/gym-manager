@@ -43,8 +43,6 @@ async def home_page(user_id: str = None):
     with ui.card().classes('w-full p-6 bg-opacity-80 bg-gray-900 rounded-lg shadow-lg'):
         if user:
             ui.label(f'Hello, {user.get("first_name", "User")} {user.get("last_name", "")}!').classes('text-lg text-center mb-2')
-            ui.label(f'Email: {user.get("email", "No email")}').classes('text-sm text-center mb-4')
-            ui.button('My Profile', on_click=lambda: ui.navigate.to(f'/myprofile')).classes('w-full bg-black-500 text-white rounded-full hover:bg-cyan-600 transition-colors mb-2')
         else:
             # Welcome message for non-logged-in users
             ui.label('Welcome to Gym Manager').classes('text-4xl font-bold text-center mb-4 text-blue-300')
