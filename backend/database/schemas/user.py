@@ -22,10 +22,8 @@ class UserBase(BaseModel):
     last_name: str
     phone: Optional[str]
     date_of_birth: Optional[date]
-    # gender: Optional[GenderEnum]
     gender: Optional[str]
     profile_image_path: Optional[str]
-    # user_type: UserTypeEnum
     user_type : str
     is_active: Optional[bool] = True
 
@@ -52,26 +50,64 @@ class UserResponse(UserBase):
     class Config:
         orm_mode = True
 
-# class Member():
-#     member_id = Column(Integer, primary_key=True, autoincrement=True)
-#     user_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), unique=True, nullable=False)
-#     weight = Column(Integer)  # in kg
-#     height = Column(Integer)  # in cm
-#     fitness_goal = Column(String(50))
-#     fitness_level = Column(String(50))
-#     health_conditions = Column(Text)
+# Member schemas
+class MemberBase(BaseModel):
+    weight: Optional[float]
+    height: Optional[float]
+    fitness_goal: Optional[str]
+    fitness_level: Optional[str]
+    health_conditions: Optional[str]
 
+class MemberCreate(MemberBase):
+    user_id: int
 
-# class Trainer():
-#     trainer_id = Column(Integer, primary_key=True, autoincrement=True)
-#     user_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), unique=True, nullable=False)
-#     specialization = Column(String(255))
-#     bio = Column(Text)
-#     certifications = Column(Text)
-#     years_of_experience = Column(Integer)
+class MemberUpdate(MemberBase):
+    pass
 
-# class Manager():
-#     manager_id = Column(Integer, primary_key=True, autoincrement=True)
-#     user_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), unique=True, nullable=False)
-#     department = Column(String(100))
-#     hire_date = Column(Date)
+class MemberResponse(MemberBase):
+    member_id: int
+    user_id: int
+    user: UserResponse
+
+    class Config:
+        orm_mode = True
+
+# Trainer schemas
+class TrainerBase(BaseModel):
+    specialization: Optional[str]
+    bio: Optional[str]
+    certifications: Optional[str]
+    years_of_experience: Optional[int]
+
+class TrainerCreate(TrainerBase):
+    user_id: int
+
+class TrainerUpdate(TrainerBase):
+    pass
+
+class TrainerResponse(TrainerBase):
+    trainer_id: int
+    user_id: int
+    user: UserResponse
+
+    class Config:
+        orm_mode = True
+
+# Manager schemas
+class ManagerBase(BaseModel):
+    department: Optional[str]
+    hire_date: Optional[date]
+
+class ManagerCreate(ManagerBase):
+    user_id: int
+
+class ManagerUpdate(ManagerBase):
+    pass
+
+class ManagerResponse(ManagerBase):
+    manager_id: int
+    user_id: int
+    user: UserResponse
+
+    class Config:
+        orm_mode = True

@@ -3,7 +3,7 @@ from fastapi import FastAPI, Depends, HTTPException, status, Request
 from fastapi.responses import RedirectResponse
 import requests
 from sqlalchemy.orm import Session
-from backend.database import get_db, User
+from backend.database import get_db, User, Member
 from backend.utils.oauth import get_oauth
 from frontend.config import API_HOST, UI_PORT, AUTH0_CLIENT_ID, AUTH0_DOMAIN, AUTH0_AUDIENCE  # Import environment variables
 from jose import jwt, JWTError, ExpiredSignatureError
@@ -48,9 +48,13 @@ def setup_auth_routes(api: FastAPI):
     @api.get("/login")
     async def login(request: Request):
         print("DEBUG:auth.py, login function")
-        redirect_uri = "http://127.0.0.1:8000/callback"
+        redirect_url = "http://127.0.0.1:8000/callback"
         try:
-            return await oauth.auth0.authorize_redirect(request, redirect_uri)
+            return await oauth.auth0.authorize_redirect(
+                request,
+                redirect_url,
+                prompt="login"
+                )
         except Exception as e:
             print("ERROR during authorize_redirect:", e)
             raise HTTPException(status_code=500, detail="Login failed")
@@ -66,23 +70,36 @@ def setup_auth_routes(api: FastAPI):
         if user_info:
             email = user_info.get("email")
 
-            # Save user to database
+            # Check if user exists
             db_user = db.query(User).filter(User.email == email).first()
             if not db_user:
+                # Create new user
                 db_user = User(
                     email=user_info["email"],
                     first_name="temp_first_name",
                     last_name="temp_last_name",
                     phone="temp_phone",
-                    date_of_birth= date(2021, 1, 1),
-                    gender="male",
+                    date_of_birth=date(2021, 1, 1),
+                    gender="Male",
                     profile_image_path="temp_profile_image_path",
                     user_type="member",
                     firebase_uid=user_info["sub"]
-                    )
+                )
                 db.add(db_user)
                 db.commit()
                 db.refresh(db_user)
+
+                # Create corresponding member record
+                new_member = Member(
+                    user_id=db_user.user_id,
+                    weight=70.0,  # default temporary weight
+                    height=170.0,  # default temporary height
+                    fitness_goal="General Fitness",  # default goal
+                    fitness_level="Beginner",  # default level
+                    health_conditions="None specified"  # default health conditions
+                )
+                db.add(new_member)
+                db.commit()
 
             print("DEBUG:auth.py, db_user:", db_user.user_id)    
             id_token = token.get('id_token')
@@ -93,7 +110,7 @@ def setup_auth_routes(api: FastAPI):
 
     @api.get("/logout")
     async def logout(request: Request):
-        logout_url = f"https://{AUTH0_DOMAIN}/v2/logout?client_id={AUTH0_CLIENT_ID}&returnTo=http://{API_HOST}:{UI_PORT}/"
+        logout_url = f"https://{AUTH0_DOMAIN}/v2/logout?client_id={AUTH0_CLIENT_ID}&returnTo=http://{API_HOST}:{UI_PORT}&federated"
         return RedirectResponse(url=logout_url)
 
 
@@ -101,5 +118,4 @@ def setup_auth_routes(api: FastAPI):
     async def me(user: dict = Depends(get_current_user)):
         print("DEBUG: /me route - user =", user)
         return {"user_id": user["sub"], "email": user["email"], "name": user["name"]}
-    
-    
+

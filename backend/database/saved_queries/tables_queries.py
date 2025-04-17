@@ -17,21 +17,18 @@ CREATE TABLE users (
 """
 
 members = """
-CREATE TABLE users (
-    user_id INT AUTO_INCREMENT PRIMARY KEY,
-    email VARCHAR(255) NOT NULL UNIQUE,
-    password_hash VARCHAR(255) NOT NULL,
-    first_name VARCHAR(100) NOT NULL,
-    last_name VARCHAR(100) NOT NULL,
-    phone VARCHAR(20),
-    date_of_birth DATE,
-    gender ENUM('Male', 'Female', 'Other'),
-    profile_image_path VARCHAR(255),
-    user_type ENUM('member', 'trainer', 'manager') NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    is_active BOOLEAN DEFAULT TRUE
-);
+CREATE TABLE members (
+  member_id int NOT NULL,
+  user_id int NOT NULL,
+  weight decimal(5,2) DEFAULT NULL,
+  height decimal(5,2) DEFAULT NULL,
+  fitness_goal enum('Weight Loss','Muscle Gain','Endurance','Flexibility','General Fitness') DEFAULT NULL,
+  fitness_level enum('Beginner','Intermediate','Advanced') DEFAULT NULL,
+  health_conditions` text,
+  PRIMARY KEY (`member_id`),
+  UNIQUE KEY `user_id` (`user_id`),
+  CONSTRAINT `members_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 """
 
 trainers = """

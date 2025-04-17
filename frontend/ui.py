@@ -7,8 +7,11 @@ from .pages.home_page import home_page
 from .pages.classes import classes_page
 from .pages.training import training_page
 from .pages.profile import profile_page
-from .pages.mybookings import mybookings_page
-from .pages.mytrainingplans import mytrainingplans_page
+from .pages.my_bookings import mybookings_page
+from .pages.my_training_plans import mytrainingplans_page
+from .pages.full_details import full_details
+from .pages.working_hours import working_hours
+
 
 
 app.add_static_files('/static', 'frontend/static')
@@ -21,6 +24,8 @@ ui.page('/training-plans')(training_page)
 ui.page('/myprofile')(profile_page)
 ui.page('/mybookings')(mybookings_page)
 ui.page('/mytrainingplans')(mytrainingplans_page)
+ui.page('/full-details')(full_details)
+ui.page('/work-hours')(working_hours)  # Reusing home_page for work hours
 
 @ui.page('/callback')
 async def callback_page():
