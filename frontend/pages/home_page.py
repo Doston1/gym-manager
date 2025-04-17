@@ -15,6 +15,10 @@ async def home_page(user_id: str = None):
             response = await client.get(f'http://{API_HOST}:{API_PORT}/users/{user["user_id"]}')
             if response.status_code == 200:
                 user = response.json()
+                if user.get("first_name") == "temp_first_name" and user.get("last_name") == "temp_last_name":
+                    # If the user is a temporary user, redirect to full details page
+                    ui.navigate.to('/full-details')
+                    return
 
     print("DEBUG: home_page.py User:", user)
 
@@ -77,6 +81,7 @@ def login():
 
 def logout():
     ui.run_javascript("localStorage.removeItem('token'); location.reload();")
+    ui.navigate.to(f"http://{API_HOST}:{API_PORT}/logout")
 
 async def get_current_user():
     try:
