@@ -1,6 +1,7 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Enum, DateTime, Text, Index, UniqueConstraint
+from sqlalchemy import TIMESTAMP, Column, Date, Integer, String, Boolean, ForeignKey, Enum, DateTime, Text, Index, Time, UniqueConstraint
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
+from datetime import datetime, date, time
 import enum
 from ..base import Base
 
@@ -168,3 +169,150 @@ class CustomPlanRequest(Base):
     member = relationship("Member", back_populates="custom_plan_requests")
     assigned_trainer = relationship("Trainer")
     completed_plan = relationship("TrainingPlan", back_populates="custom_requests")
+
+
+class TrainingPreference(Base):
+    __tablename__ = "training_preferences"
+    
+    preference_id = Column(Integer, primary_key=True, index=True)
+    member_id = Column(Integer, ForeignKey("members.member_id", ondelete="CASCADE"), nullable=False)
+    week_start_date = Column(Date, nullable=False)
+    day_of_week = Column(Enum("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", name="day_of_week_enum"), nullable=False)
+    start_time = Column(Time, nullable=False)
+    end_time = Column(Time, nullable=False)
+    preference_type = Column(Enum("Preferred", "Available", "Not Available", name="preference_type_enum"), nullable=False)
+    trainer_id = Column(Integer, ForeignKey("trainers.trainer_id", ondelete="SET NULL"), nullable=True)
+    created_at = Column(TIMESTAMP, server_default=func.now())
+    
+    # Relationships
+    member = relationship("Member", back_populates="training_preferences")
+    trainer = relationship("Trainer")
+    
+    def __repr__(self):
+        return f"<TrainingPreference(preference_id={self.preference_id}, member_id={self.member_id}, day={self.day_of_week}, time={self.start_time}-{self.end_time})>"
+
+class WeeklySchedule(Base):
+    __tablename__ = "weekly_schedule"
+    
+    schedule_id = Column(Integer, primary_key=True, index=True)
+    week_start_date = Column(Date, nullable=False)
+    day_of_week = Column(Enum("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", name="day_of_week_enum"), nullable=False)
+    start_time = Column(Time, nullable=False)
+    end_time = Column(Time, nullable=False)
+    hall_id = Column(Integer, ForeignKey("halls.hall_id", ondelete="CASCADE"), nullable=False)
+    trainer_id = Column(Integer, ForeignKey("trainers.trainer_id", ondelete="CASCADE"), nullable=False)
+    max_capacity = Column(Integer, nullable=False)
+    status = Column(Enum("Scheduled", "In Progress", "Completed", "Cancelled", name="schedule_status_enum"), server_default="Scheduled")
+    created_by = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
+    created_at = Column(TIMESTAMP, server_default=func.now())
+    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    hall = relationship("Hall")
+    trainer = relationship("Trainer")
+    creator = relationship("User", foreign_keys=[created_by])
+    schedule_members = relationship("ScheduleMember", back_populates="schedule", cascade="all, delete-orphan")
+    live_sessions = relationship("LiveSession", back_populates="schedule", cascade="all, delete-orphan")
+    
+    def __repr__(self):
+        return f"<WeeklySchedule(schedule_id={self.schedule_id}, day={self.day_of_week}, time={self.start_time}-{self.end_time}, hall_id={self.hall_id})>"
+
+class ScheduleMember(Base):
+    __tablename__ = "schedule_members"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    schedule_id = Column(Integer, ForeignKey("weekly_schedule.schedule_id", ondelete="CASCADE"), nullable=False)
+    member_id = Column(Integer, ForeignKey("members.member_id", ondelete="CASCADE"), nullable=False)
+    status = Column(Enum("Assigned", "Confirmed", "Cancelled", "Attended", "No Show", name="schedule_member_status_enum"), server_default="Assigned")
+    created_at = Column(TIMESTAMP, server_default=func.now())
+    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    schedule = relationship("WeeklySchedule", back_populates="schedule_members")
+    member = relationship("Member")
+    
+    def __repr__(self):
+        return f"<ScheduleMember(id={self.id}, schedule_id={self.schedule_id}, member_id={self.member_id}, status={self.status})>"
+
+class LiveSession(Base):
+    __tablename__ = "live_sessions"
+    
+    live_session_id = Column(Integer, primary_key=True, index=True)
+    schedule_id = Column(Integer, ForeignKey("weekly_schedule.schedule_id", ondelete="CASCADE"), nullable=False)
+    start_time = Column(TIMESTAMP, server_default=func.now())
+    end_time = Column(TIMESTAMP, nullable=True)
+    status = Column(Enum("Started", "In Progress", "Completed", "Cancelled", name="live_session_status_enum"), server_default="Started")
+    notes = Column(Text)
+    created_at = Column(TIMESTAMP, server_default=func.now())
+    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    schedule = relationship("WeeklySchedule", back_populates="live_sessions")
+    exercises = relationship("LiveSessionExercise", back_populates="live_session", cascade="all, delete-orphan")
+    attendance = relationship("LiveSessionAttendance", back_populates="live_session", cascade="all, delete-orphan")
+    
+    def __repr__(self):
+        return f"<LiveSession(live_session_id={self.live_session_id}, schedule_id={self.schedule_id}, status={self.status})>"
+
+class LiveSessionExercise(Base):
+    __tablename__ = "live_session_exercises"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    live_session_id = Column(Integer, ForeignKey("live_sessions.live_session_id", ondelete="CASCADE"), nullable=False)
+    member_id = Column(Integer, ForeignKey("members.member_id", ondelete="CASCADE"), nullable=False)
+    exercise_id = Column(Integer, ForeignKey("exercises.exercise_id"), nullable=False)
+    sets_completed = Column(Integer, nullable=True)
+    actual_reps = Column(String(100), nullable=True)
+    weight_used = Column(String(100), nullable=True)
+    comments = Column(Text, nullable=True)
+    completed = Column(Boolean, server_default="false")
+    completed_at = Column(TIMESTAMP, nullable=True)
+    created_at = Column(TIMESTAMP, server_default=func.now())
+    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    live_session = relationship("LiveSession", back_populates="exercises")
+    member = relationship("Member")
+    exercise = relationship("Exercise")
+    
+    def __repr__(self):
+        return f"<LiveSessionExercise(id={self.id}, live_session_id={self.live_session_id}, member_id={self.member_id}, exercise_id={self.exercise_id})>"
+
+class LiveSessionAttendance(Base):
+    __tablename__ = "live_session_attendance"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    live_session_id = Column(Integer, ForeignKey("live_sessions.live_session_id", ondelete="CASCADE"), nullable=False)
+    member_id = Column(Integer, ForeignKey("members.member_id", ondelete="CASCADE"), nullable=False)
+    check_in_time = Column(TIMESTAMP, server_default=func.now())
+    check_out_time = Column(TIMESTAMP, nullable=True)
+    status = Column(Enum("Checked In", "Checked Out", "No Show", name="attendance_status_enum"), server_default="Checked In")
+    notes = Column(Text, nullable=True)
+    
+    # Relationships
+    live_session = relationship("LiveSession", back_populates="attendance")
+    member = relationship("Member")
+    
+    def __repr__(self):
+        return f"<LiveSessionAttendance(id={self.id}, live_session_id={self.live_session_id}, member_id={self.member_id}, status={self.status})>"
+
+class TrainingCycle(Base):
+    __tablename__ = "training_cycles"
+    
+    cycle_id = Column(Integer, primary_key=True, index=True)
+    member_id = Column(Integer, ForeignKey("members.member_id", ondelete="CASCADE"), nullable=False)
+    plan_id = Column(Integer, ForeignKey("training_plans.plan_id"), nullable=False)
+    start_date = Column(Date, nullable=False)
+    end_date = Column(Date, nullable=False)
+    status = Column(Enum("Planned", "In Progress", "Completed", "Cancelled", name="cycle_status_enum"), server_default="Planned")
+    created_by = Column(Integer, ForeignKey("users.user_id"), nullable=False)
+    created_at = Column(TIMESTAMP, server_default=func.now())
+    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    member = relationship("Member")
+    plan = relationship("TrainingPlan")
+    creator = relationship("User", foreign_keys=[created_by])
+    
+    def __repr__(self):
+        return f"<TrainingCycle(cycle_id={self.cycle_id}, member_id={self.member_id}, plan_id={self.plan_id}, status={self.status})>"

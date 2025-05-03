@@ -45,24 +45,62 @@ async def training_page():
         user = await user_full_details(user)
     print("DEBUG: training_page.py User:", user)
     is_manager = user and user.get("user_type") == "manager"
+    is_trainer = user and user.get("user_type") == "trainer"
+    is_member = user and user.get("user_type") == "member"
 
-    with ui.card().classes('w-96 p-6 bg-gray-900 rounded-lg shadow-lg'):
-        ui.label('Training Plans').classes('text-2xl font-bold text-center mb-4 text-blue-300')
-        response = requests.get("http://127.0.0.1:8000/training-plans")
-        plans = response.json() if response.status_code == 200 else []
+    # Create a layout with sidebar and main content
+    with ui.row().classes('w-full p-4 gap-4'):
+        # Sidebar for navigation to training features
+        with ui.card().classes('w-64 bg-gray-900 rounded-lg shadow-lg'):
+            ui.label('Training Features').classes('text-xl font-bold text-center mb-4 text-blue-300')
+            
+            # Training plans link (current page)
+            ui.button('Training Plans', on_click=lambda: ui.navigate.to('/training-plans')).classes('w-full mb-2 bg-blue-600 text-white')
+            
+            # Weekly Schedule link
+            ui.button('Weekly Schedule', on_click=lambda: ui.navigate.to('/weekly-schedule')).classes('w-full mb-2 bg-gray-800 hover:bg-gray-700 text-white')
+            
+            # Live Training Dashboard link
+            ui.button('Live Training Dashboard', on_click=lambda: ui.navigate.to('/live-dashboard')).classes('w-full mb-2 bg-gray-800 hover:bg-gray-700 text-white')
+            
+            # Training Preferences link (members only)
+            if is_member:
+                ui.button('Set Training Preferences', on_click=lambda: ui.navigate.to('/training-preferences')).classes('w-full mb-2 bg-gray-800 hover:bg-gray-700 text-white')
+            
+            # Helpful information based on user type
+            with ui.card().classes('mt-4 p-2 bg-gray-800'):
+                if is_member:
+                    ui.label('Tips for Members:').classes('font-bold text-blue-300')
+                    ui.label('1. Set your weekly training preferences every Thursday').classes('text-sm text-gray-300')
+                    ui.label('2. Check the weekly schedule for your assigned sessions').classes('text-sm text-gray-300')
+                    ui.label('3. Track your progress in the live dashboard').classes('text-sm text-gray-300')
+                elif is_trainer:
+                    ui.label('Tips for Trainers:').classes('font-bold text-blue-300')
+                    ui.label('1. Start live sessions from the weekly schedule').classes('text-sm text-gray-300')
+                    ui.label('2. Monitor member progress in the live dashboard').classes('text-sm text-gray-300')
+                elif is_manager:
+                    ui.label('Manager Options:').classes('font-bold text-blue-300')
+                    ui.label('1. Generate weekly schedules based on preferences').classes('text-sm text-gray-300')
+                    ui.label('2. Monitor all active training sessions').classes('text-sm text-gray-300')
 
-        if is_manager:
-            ui.button('Add a Training Plan', on_click=show_add_training_plan_form).classes('bg-green-500 text-white rounded-full hover:bg-green-600 transition-colors mb-4')
+        # Main content area
+        with ui.card().classes('flex-grow p-6 bg-gray-900 rounded-lg shadow-lg'):
+            ui.label('Training Plans').classes('text-2xl font-bold text-center mb-4 text-blue-300')
+            response = requests.get("http://127.0.0.1:8000/training-plans")
+            plans = response.json() if response.status_code == 200 else []
 
-        if plans:
-            for plan in plans:
-                with ui.card().classes('mb-2 p-4 bg-gray-800 rounded-lg shadow-md'):
-                    ui.label(f"{plan['title']}").classes('text-lg font-bold text-blue-300')
-                    ui.label(f"Duration: {plan['duration_weeks']} weeks").classes('text-gray-300')
-                    ui.label(f"Focus: {plan['primary_focus']}").classes('text-gray-300')
-                    ui.button('View Plan', on_click=lambda: ui.notify(f'Viewing {plan["title"]}')).classes('bg-cyan-500 text-white rounded-full hover:bg-cyan-600 transition-colors')
-        else:
-            ui.label('No training plans available.').classes('text-center text-gray-500')
+            if is_manager:
+                ui.button('Add a Training Plan', on_click=show_add_training_plan_form).classes('bg-green-500 text-white rounded-full hover:bg-green-600 transition-colors mb-4')
+
+            if plans:
+                for plan in plans:
+                    with ui.card().classes('mb-2 p-4 bg-gray-800 rounded-lg shadow-md'):
+                        ui.label(f"{plan['title']}").classes('text-lg font-bold text-blue-300')
+                        ui.label(f"Duration: {plan['duration_weeks']} weeks").classes('text-gray-300')
+                        ui.label(f"Focus: {plan['primary_focus']}").classes('text-gray-300')
+                        ui.button('View Plan', on_click=lambda: ui.notify(f'Viewing {plan["title"]}')).classes('bg-cyan-500 text-white rounded-full hover:bg-cyan-600 transition-colors')
+            else:
+                ui.label('No training plans available.').classes('text-center text-gray-500')
 
 def show_add_training_plan_form():
     with ui.card().classes('w-96 p-6 bg-white rounded-lg shadow-lg') as form_card:
