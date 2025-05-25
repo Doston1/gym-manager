@@ -72,6 +72,23 @@ class MemberResponse(MemberBase):
     class Config:
         orm_mode = True
 
+
+# Add a new schema for combined profile update
+class ProfileUpdate(BaseModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    phone: Optional[str] = None
+    date_of_birth: Optional[date] = None
+    gender: Optional[GenderEnum] = None # Use the existing GenderEnum
+    # Member specific fields, matching MemberUpdate
+    weight: Optional[float] = None
+    height: Optional[float] = None
+    fitness_goal: Optional[str] = None
+    fitness_level: Optional[str] = None
+    health_conditions: Optional[str] = None
+    # Add trainer/manager specific fields if they also use this endpoint for profile updates
+
+
 # Trainer schemas
 class TrainerBase(BaseModel):
     specialization: Optional[str]
