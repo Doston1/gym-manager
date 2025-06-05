@@ -1,346 +1,100 @@
-from sqlalchemy.orm import Session
-from sqlalchemy import and_, or_, func
-from typing import List, Optional, Dict, Any
-from datetime import datetime, date, time, timedelta
+# In backend/database/crud/training.py
 
-from ..models.training import (
-    TrainingPreference, 
-    WeeklySchedule, 
-    ScheduleMember, 
-    LiveSession, 
-    LiveSessionExercise,
-    LiveSessionAttendance,
-    TrainingCycle
-)
-from ..schemas.training import (
-    TrainingPreferenceCreate,
-    TrainingPreferenceUpdate,
-    WeeklyScheduleCreate,
-    WeeklyScheduleUpdate,
-    ScheduleMemberCreate,
-    ScheduleMemberUpdate,
-    LiveSessionCreate,
-    LiveSessionUpdate,
-    LiveSessionExerciseCreate,
-    LiveSessionExerciseUpdate,
-    LiveSessionAttendanceCreate,
-    LiveSessionAttendanceUpdate,
-    TrainingCycleCreate,
-    TrainingCycleUpdate,
-    ScheduleStatus,
-    ScheduleMemberStatus,
-    LiveSessionStatus,
-    AttendanceStatus,
-    CycleStatus
-)
+from backend.database.db_utils import get_sql, format_records, validate_payload
+from mysql.connector import Error as DBError
+from fastapi import HTTPException
+import datetime # For type hinting if needed, and default values
 
+# --- TrainingPlan Operations ---
+def get_training_plan_by_id(db_conn, cursor, plan_id: int):
+    sql = get_sql("training_plans_get_by_id")
+    cursor.execute(sql, (plan_id,))
+    return format_records(cursor.fetchone())
 
-# Training Preferences CRUD
-def get_training_preference(db: Session, preference_id: int):
-    return db.query(TrainingPreference).filter(TrainingPreference.preference_id == preference_id).first()
+def get_all_training_plans(db_conn, cursor):
+    sql = get_sql("training_plans_get_all")
+    cursor.execute(sql)
+    return format_records(cursor.fetchall())
 
-def get_member_preferences(db: Session, member_id: int, week_start_date: Optional[date] = None):
-    query = db.query(TrainingPreference).filter(TrainingPreference.member_id == member_id)
-    if week_start_date:
-        query = query.filter(TrainingPreference.week_start_date == week_start_date)
-    return query.all()
+def create_training_plan(db_conn, cursor, plan_data: dict):
+    required_fields = ["title", "duration_weeks", "days_per_week", "primary_focus"]
+    optional_fields = [
+        "description", "difficulty_level", "secondary_focus", "target_gender",
+        "min_age", "max_age", "equipment_needed", "created_by", "is_custom", "is_active"
+    ]
+    try:
+        validated_data = validate_payload(plan_data, required_fields, optional_fields)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
-def create_training_preference(db: Session, preference: TrainingPreferenceCreate):
-    db_preference = TrainingPreference(**preference.dict())
-    db.add(db_preference)
-    db.commit()
-    db.refresh(db_preference)
-    return db_preference
+    # Set defaults
+    validated_data.setdefault("difficulty_level", "All Levels")
+    validated_data.setdefault("target_gender", "Any")
+    validated_data.setdefault("is_custom", False)
+    validated_data.setdefault("is_active", True)
 
-def update_training_preference(db: Session, preference_id: int, preference: TrainingPreferenceUpdate):
-    db_preference = get_training_preference(db, preference_id)
-    if db_preference is None:
+    sql = get_sql("training_plans_create")
+    try:
+        cursor.execute(sql, validated_data)
+        db_conn.commit()
+        plan_id = cursor.lastrowid
+        return get_training_plan_by_id(db_conn, cursor, plan_id)
+    except DBError as e:
+        db_conn.rollback()
+        # Check for foreign key constraint violation if created_by is invalid
+        if e.errno == 1452: # Cannot add or update a child row: a foreign key constraint fails
+            raise HTTPException(status_code=400, detail=f"Invalid 'created_by' (trainer_id): Trainer does not exist.")
+        raise HTTPException(status_code=500, detail=f"Database error: {e}")
+
+def update_training_plan(db_conn, cursor, plan_id: int, plan_data: dict):
+    existing_plan = get_training_plan_by_id(db_conn, cursor, plan_id)
+    if not existing_plan:
         return None
-    
-    update_data = preference.dict(exclude_unset=True)
-    for key, value in update_data.items():
-        setattr(db_preference, key, value)
-    
-    db.commit()
-    db.refresh(db_preference)
-    return db_preference
 
-def delete_training_preference(db: Session, preference_id: int):
-    db_preference = get_training_preference(db, preference_id)
-    if db_preference is None:
+    optional_fields = [
+        "title", "description", "difficulty_level", "duration_weeks", "days_per_week",
+        "primary_focus", "secondary_focus", "target_gender", "min_age", "max_age",
+        "equipment_needed", "created_by", "is_custom", "is_active"
+    ]
+    try:
+        validated_data = validate_payload(plan_data, [], optional_fields)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    if not validated_data:
+        raise HTTPException(status_code=400, detail="No data provided for update.")
+
+    set_clauses = ", ".join([f"{key} = %({key})s" for key in validated_data])
+    sql_template = get_sql("training_plans_update_by_id")
+    sql = sql_template.replace("{set_clauses}", set_clauses)
+    
+    update_params = {**validated_data, "plan_id": plan_id}
+
+    try:
+        cursor.execute(sql, update_params)
+        db_conn.commit()
+        return get_training_plan_by_id(db_conn, cursor, plan_id)
+    except DBError as e:
+        db_conn.rollback()
+        if e.errno == 1452 and 'created_by' in validated_data:
+             raise HTTPException(status_code=400, detail=f"Invalid 'created_by' (trainer_id): Trainer does not exist.")
+        raise HTTPException(status_code=500, detail=f"Database error: {e}")
+
+def delete_training_plan(db_conn, cursor, plan_id: int):
+    existing_plan = get_training_plan_by_id(db_conn, cursor, plan_id)
+    if not existing_plan:
         return False
-    
-    db.delete(db_preference)
-    db.commit()
-    return True
+    sql = get_sql("training_plans_delete_by_id")
+    try:
+        cursor.execute(sql, (plan_id,))
+        db_conn.commit()
+        return cursor.rowcount > 0
+    except DBError as e:
+        db_conn.rollback()
+        # Handle potential FK issues if plans are linked elsewhere and not ON DELETE CASCADE
+        raise HTTPException(status_code=500, detail=f"Database error: {e}")
 
-# Weekly Schedule CRUD
-def get_schedule(db: Session, schedule_id: int):
-    return db.query(WeeklySchedule).filter(WeeklySchedule.schedule_id == schedule_id).first()
-
-def get_weekly_schedules(db: Session, week_start_date: Optional[date] = None, trainer_id: Optional[int] = None):
-    query = db.query(WeeklySchedule)
-    
-    if week_start_date:
-        query = query.filter(WeeklySchedule.week_start_date == week_start_date)
-    
-    if trainer_id:
-        query = query.filter(WeeklySchedule.trainer_id == trainer_id)
-    
-    return query.all()
-
-def create_weekly_schedule(db: Session, schedule: WeeklyScheduleCreate):
-    db_schedule = WeeklySchedule(**schedule.dict(), status=ScheduleStatus.scheduled)
-    db.add(db_schedule)
-    db.commit()
-    db.refresh(db_schedule)
-    return db_schedule
-
-def update_weekly_schedule(db: Session, schedule_id: int, schedule: WeeklyScheduleUpdate):
-    db_schedule = get_schedule(db, schedule_id)
-    if db_schedule is None:
-        return None
-    
-    update_data = schedule.dict(exclude_unset=True)
-    for key, value in update_data.items():
-        setattr(db_schedule, key, value)
-    
-    db.commit()
-    db.refresh(db_schedule)
-    return db_schedule
-
-def delete_weekly_schedule(db: Session, schedule_id: int):
-    db_schedule = get_schedule(db, schedule_id)
-    if db_schedule is None:
-        return False
-    
-    db.delete(db_schedule)
-    db.commit()
-    return True
-
-# Schedule Members CRUD
-def get_schedule_member(db: Session, id: int):
-    return db.query(ScheduleMember).filter(ScheduleMember.id == id).first()
-
-def get_schedule_members(db: Session, schedule_id: int):
-    return db.query(ScheduleMember).filter(ScheduleMember.schedule_id == schedule_id).all()
-
-def get_member_scheduled_sessions(db: Session, member_id: int, start_date: Optional[date] = None, end_date: Optional[date] = None):
-    query = db.query(WeeklySchedule).join(
-        ScheduleMember, 
-        WeeklySchedule.schedule_id == ScheduleMember.schedule_id
-    ).filter(ScheduleMember.member_id == member_id)
-    
-    if start_date:
-        query = query.filter(WeeklySchedule.week_start_date >= start_date)
-    
-    if end_date:
-        end_week_start = end_date - timedelta(days=end_date.weekday())
-        query = query.filter(WeeklySchedule.week_start_date <= end_week_start)
-    
-    return query.all()
-
-def add_member_to_schedule(db: Session, schedule_member: ScheduleMemberCreate):
-    db_schedule_member = ScheduleMember(**schedule_member.dict())
-    db.add(db_schedule_member)
-    db.commit()
-    db.refresh(db_schedule_member)
-    return db_schedule_member
-
-def update_schedule_member(db: Session, id: int, schedule_member: ScheduleMemberUpdate):
-    db_schedule_member = get_schedule_member(db, id)
-    if db_schedule_member is None:
-        return None
-    
-    update_data = schedule_member.dict(exclude_unset=True)
-    for key, value in update_data.items():
-        setattr(db_schedule_member, key, value)
-    
-    db.commit()
-    db.refresh(db_schedule_member)
-    return db_schedule_member
-
-def remove_member_from_schedule(db: Session, id: int):
-    db_schedule_member = get_schedule_member(db, id)
-    if db_schedule_member is None:
-        return False
-    
-    db.delete(db_schedule_member)
-    db.commit()
-    return True
-
-# Live Sessions CRUD
-def get_live_session(db: Session, live_session_id: int):
-    return db.query(LiveSession).filter(LiveSession.live_session_id == live_session_id).first()
-
-def get_active_live_sessions(db: Session, trainer_id: Optional[int] = None):
-    query = db.query(LiveSession).join(
-        WeeklySchedule, 
-        LiveSession.schedule_id == WeeklySchedule.schedule_id
-    ).filter(
-        LiveSession.status.in_([LiveSessionStatus.started, LiveSessionStatus.in_progress])
-    )
-    
-    if trainer_id:
-        query = query.filter(WeeklySchedule.trainer_id == trainer_id)
-    
-    return query.all()
-
-def create_live_session(db: Session, live_session: LiveSessionCreate):
-    db_live_session = LiveSession(
-        **live_session.dict(),
-        start_time=datetime.now(),
-        status=LiveSessionStatus.started
-    )
-    db.add(db_live_session)
-    db.commit()
-    db.refresh(db_live_session)
-    return db_live_session
-
-def update_live_session(db: Session, live_session_id: int, live_session: LiveSessionUpdate):
-    db_live_session = get_live_session(db, live_session_id)
-    if db_live_session is None:
-        return None
-    
-    update_data = live_session.dict(exclude_unset=True)
-    for key, value in update_data.items():
-        setattr(db_live_session, key, value)
-    
-    db.commit()
-    db.refresh(db_live_session)
-    return db_live_session
-
-def complete_live_session(db: Session, live_session_id: int):
-    db_live_session = get_live_session(db, live_session_id)
-    if db_live_session is None:
-        return None
-    
-    db_live_session.status = LiveSessionStatus.completed
-    db_live_session.end_time = datetime.now()
-    
-    db.commit()
-    db.refresh(db_live_session)
-    return db_live_session
-
-# Live Session Exercises CRUD
-def get_session_exercise(db: Session, id: int):
-    return db.query(LiveSessionExercise).filter(LiveSessionExercise.id == id).first()
-
-def get_session_exercises(db: Session, live_session_id: int, member_id: Optional[int] = None):
-    query = db.query(LiveSessionExercise).filter(LiveSessionExercise.live_session_id == live_session_id)
-    
-    if member_id:
-        query = query.filter(LiveSessionExercise.member_id == member_id)
-    
-    return query.all()
-
-def add_session_exercise(db: Session, exercise: LiveSessionExerciseCreate):
-    db_exercise = LiveSessionExercise(**exercise.dict(), completed=False)
-    db.add(db_exercise)
-    db.commit()
-    db.refresh(db_exercise)
-    return db_exercise
-
-def update_session_exercise(db: Session, id: int, exercise: LiveSessionExerciseUpdate):
-    db_exercise = get_session_exercise(db, id)
-    if db_exercise is None:
-        return None
-    
-    update_data = exercise.dict(exclude_unset=True)
-    for key, value in update_data.items():
-        setattr(db_exercise, key, value)
-    
-    if exercise.completed:
-        db_exercise.completed_at = datetime.now()
-    
-    db.commit()
-    db.refresh(db_exercise)
-    return db_exercise
-
-def delete_session_exercise(db: Session, id: int):
-    db_exercise = get_session_exercise(db, id)
-    if db_exercise is None:
-        return False
-    
-    db.delete(db_exercise)
-    db.commit()
-    return True
-
-# Live Session Attendance CRUD
-def get_attendance_record(db: Session, id: int):
-    return db.query(LiveSessionAttendance).filter(LiveSessionAttendance.id == id).first()
-
-def get_session_attendance(db: Session, live_session_id: int):
-    return db.query(LiveSessionAttendance).filter(
-        LiveSessionAttendance.live_session_id == live_session_id
-    ).all()
-
-def member_check_in(db: Session, attendance: LiveSessionAttendanceCreate):
-    db_attendance = LiveSessionAttendance(
-        **attendance.dict(),
-        check_in_time=datetime.now(),
-        status=AttendanceStatus.checked_in
-    )
-    db.add(db_attendance)
-    db.commit()
-    db.refresh(db_attendance)
-    return db_attendance
-
-def member_check_out(db: Session, id: int, attendance: LiveSessionAttendanceUpdate):
-    db_attendance = get_attendance_record(db, id)
-    if db_attendance is None:
-        return None
-    
-    update_data = attendance.dict(exclude_unset=True)
-    for key, value in update_data.items():
-        setattr(db_attendance, key, value)
-    
-    if attendance.status == AttendanceStatus.checked_out:
-        db_attendance.check_out_time = datetime.now()
-    
-    db.commit()
-    db.refresh(db_attendance)
-    return db_attendance
-
-# Training Cycles CRUD
-def get_training_cycle(db: Session, cycle_id: int):
-    return db.query(TrainingCycle).filter(TrainingCycle.cycle_id == cycle_id).first()
-
-def get_member_training_cycles(db: Session, member_id: int, active_only: bool = False):
-    query = db.query(TrainingCycle).filter(TrainingCycle.member_id == member_id)
-    
-    if active_only:
-        query = query.filter(
-            TrainingCycle.status.in_([CycleStatus.planned, CycleStatus.in_progress])
-        )
-    
-    return query.order_by(TrainingCycle.start_date.desc()).all()
-
-def create_training_cycle(db: Session, cycle: TrainingCycleCreate):
-    db_cycle = TrainingCycle(**cycle.dict(), status=CycleStatus.planned)
-    db.add(db_cycle)
-    db.commit()
-    db.refresh(db_cycle)
-    return db_cycle
-
-def update_training_cycle(db: Session, cycle_id: int, cycle: TrainingCycleUpdate):
-    db_cycle = get_training_cycle(db, cycle_id)
-    if db_cycle is None:
-        return None
-    
-    update_data = cycle.dict(exclude_unset=True)
-    for key, value in update_data.items():
-        setattr(db_cycle, key, value)
-    
-    db.commit()
-    db.refresh(db_cycle)
-    return db_cycle
-
-def delete_training_cycle(db: Session, cycle_id: int):
-    db_cycle = get_training_cycle(db, cycle_id)
-    if db_cycle is None:
-        return False
-    
-    db.delete(db_cycle)
-    db.commit()
-    return True
+# ... Implement similar CRUD for TrainingPlanDay, Exercise, TrainingDayExercise,
+# MemberSavedPlan, CustomPlanRequest, TrainingPreference, WeeklySchedule,
+# ScheduleMember, LiveSession, LiveSessionExercise, LiveSessionAttendance etc.
+# And the NEW training_cycles (name, description), training_cycle_sessions, session_exercises.
