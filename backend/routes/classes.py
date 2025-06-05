@@ -1,67 +1,212 @@
-
-
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from backend.database import get_db
-from backend.database.schemas.class_mgmt import (
-    ClassTypeCreate,
-    ClassTypeResponse,
-    ClassCreate,
-    ClassResponse,
-    ClassBookingCreate,
-    ClassBookingResponse,
-)
-from backend.database.crud.class_mgmt import (
-    get_all_classes as crud_get_all_classes,
-    get_class_by_id as crud_get_class_by_id,
-    create_class as crud_create_class,
-    update_class as crud_update_class,
-    delete_class as crud_delete_class,
-    create_class_booking as crud_create_class_booking,
-)
+from fastapi import APIRouter, Depends, HTTPException, status, Request
+from backend.database.base import get_db_cursor, get_db_connection
+from backend.database.crud import class_mgmt as crud_class
 
 router = APIRouter(prefix="/classes", tags=["Classes"])
 
+# === ClassType Routes ===
+@router.post("/types", status_code=status.HTTP_201_CREATED)
+async def create_class_type_route(request: Request, db_conn = Depends(get_db_connection)):
+    try:
+        payload = await request.json()
+        cursor = db_conn.cursor(dictionary=True)
+        result = crud_class.create_class_type(db_conn, cursor, payload)
+        db_conn.commit()
+        return result
+    except HTTPException as e:
+        db_conn.rollback()
+        raise e
+    except Exception as e:
+        db_conn.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    finally:
+        cursor.close()
 
-# ✅ Get all classes
-@router.get("/", response_model=list[ClassResponse])
-def get_all_classes(db: Session = Depends(get_db)):
-    return crud_get_all_classes(db)
+@router.get("/types/{class_type_id}")
+def get_class_type_route(class_type_id: int, db_conn_cursor = Depends(get_db_cursor)):
+    db_conn, cursor = db_conn_cursor
+    return crud_class.get_class_type_by_id(db_conn, cursor, class_type_id)
 
+@router.get("/types")
+def get_all_class_types_route(db_conn_cursor = Depends(get_db_cursor)):
+    db_conn, cursor = db_conn_cursor
+    return crud_class.get_all_class_types(db_conn, cursor)
 
-# ✅ Get a specific class by ID
-@router.get("/{class_id}", response_model=ClassResponse)
-def get_class(class_id: int, db: Session = Depends(get_db)):
-    gym_class = crud_get_class_by_id(db, class_id)
-    if not gym_class:
-        raise HTTPException(status_code=404, detail="Class not found")
-    return gym_class
+@router.put("/types/{class_type_id}")
+async def update_class_type_route(class_type_id: int, request: Request, db_conn = Depends(get_db_connection)):
+    try:
+        payload = await request.json()
+        cursor = db_conn.cursor(dictionary=True)
+        result = crud_class.update_class_type(db_conn, cursor, class_type_id, payload)
+        db_conn.commit()
+        return result
+    except HTTPException as e:
+        db_conn.rollback()
+        raise e
+    except Exception as e:
+        db_conn.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    finally:
+        cursor.close()
 
+@router.delete("/types/{class_type_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_class_type_route(class_type_id: int, db_conn = Depends(get_db_connection)):
+    try:
+        cursor = db_conn.cursor(dictionary=True)
+        crud_class.delete_class_type(db_conn, cursor, class_type_id)
+        db_conn.commit()
+        return None
+    except HTTPException as e:
+        db_conn.rollback()
+        raise e
+    except Exception as e:
+        db_conn.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    finally:
+        cursor.close()
 
-# ✅ Create a new class
-@router.post("/", response_model=ClassResponse)
-def create_class(gym_class: ClassCreate, db: Session = Depends(get_db)):
-    return crud_create_class(db, gym_class)
+# === Class Routes ===
+@router.get("/")
+def get_all_classes_route(detailed: bool = False, db_conn_cursor = Depends(get_db_cursor)):
+    db_conn, cursor = db_conn_cursor
+    if detailed:
+        return crud_class.get_all_classes_detailed(db_conn, cursor)
+    return crud_class.get_all_classes(db_conn, cursor)
 
+@router.get("/{class_id}")
+def get_class_route(class_id: int, detailed: bool = False, db_conn_cursor = Depends(get_db_cursor)):
+    db_conn, cursor = db_conn_cursor
+    if detailed:
+        return crud_class.get_class_detailed_by_id(db_conn, cursor, class_id)
+    return crud_class.get_class_by_id(db_conn, cursor, class_id)
 
-# ✅ Update an existing class
-@router.put("/{class_id}", response_model=ClassResponse)
-def update_class(class_id: int, updated_data: ClassCreate, db: Session = Depends(get_db)):
-    updated_class = crud_update_class(db, class_id, updated_data)
-    if not updated_class:
-        raise HTTPException(status_code=404, detail="Class not found")
-    return updated_class
+@router.post("/", status_code=status.HTTP_201_CREATED)
+async def create_class_route(request: Request, db_conn = Depends(get_db_connection)):
+    try:
+        payload = await request.json()
+        cursor = db_conn.cursor(dictionary=True)
+        result = crud_class.create_class(db_conn, cursor, payload)
+        db_conn.commit()
+        return result
+    except HTTPException as e:
+        db_conn.rollback()
+        raise e
+    except Exception as e:
+        db_conn.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    finally:
+        cursor.close()
 
+@router.put("/{class_id}")
+async def update_class_route(class_id: int, request: Request, db_conn = Depends(get_db_connection)):
+    try:
+        payload = await request.json()
+        cursor = db_conn.cursor(dictionary=True)
+        result = crud_class.update_class(db_conn, cursor, class_id, payload)
+        db_conn.commit()
+        return result
+    except HTTPException as e:
+        db_conn.rollback()
+        raise e
+    except Exception as e:
+        db_conn.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    finally:
+        cursor.close()
 
-# ✅ Delete a class
-@router.delete("/{class_id}")
-def delete_class(class_id: int, db: Session = Depends(get_db)):
-    if not crud_delete_class(db, class_id):
-        raise HTTPException(status_code=404, detail="Class not found")
-    return {"message": "Class deleted successfully"}
+@router.delete("/{class_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_class_route(class_id: int, db_conn = Depends(get_db_connection)):
+    try:
+        cursor = db_conn.cursor(dictionary=True)
+        crud_class.delete_class(db_conn, cursor, class_id)
+        db_conn.commit()
+        return None
+    except HTTPException as e:
+        db_conn.rollback()
+        raise e
+    except Exception as e:
+        db_conn.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    finally:
+        cursor.close()
 
+# === ClassBooking Routes ===
+@router.post("/bookings", status_code=status.HTTP_201_CREATED)
+async def create_class_booking_route(request: Request, db_conn = Depends(get_db_connection)):
+    try:
+        payload = await request.json()
+        cursor = db_conn.cursor(dictionary=True)
+        result = crud_class.create_class_booking(db_conn, cursor, payload)
+        db_conn.commit()
+        return result
+    except HTTPException as e:
+        db_conn.rollback()
+        raise e
+    except Exception as e:
+        db_conn.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    finally:
+        cursor.close()
 
-# ✅ Create a class booking
-@router.post("/bookings", response_model=ClassBookingResponse)
-def create_class_booking(booking: ClassBookingCreate, db: Session = Depends(get_db)):
-    return crud_create_class_booking(db, booking)
+@router.get("/bookings/{booking_id}")
+def get_class_booking_route(booking_id: int, db_conn_cursor = Depends(get_db_cursor)):
+    db_conn, cursor = db_conn_cursor
+    return crud_class.get_class_booking_by_id(db_conn, cursor, booking_id)
+
+@router.get("/bookings/by-class/{class_id}")
+def get_class_bookings_by_class_route(class_id: int, db_conn_cursor = Depends(get_db_cursor)):
+    db_conn, cursor = db_conn_cursor
+    return crud_class.get_class_bookings_by_class_id(db_conn, cursor, class_id)
+
+@router.get("/bookings/by-member/{member_id}")
+def get_class_bookings_by_member_route(member_id: int, db_conn_cursor = Depends(get_db_cursor)):
+    db_conn, cursor = db_conn_cursor
+    return crud_class.get_class_bookings_by_member_id(db_conn, cursor, member_id)
+
+@router.put("/bookings/{booking_id}")
+async def update_class_booking_route(booking_id: int, request: Request, db_conn = Depends(get_db_connection)):
+    try:
+        payload = await request.json()
+        cursor = db_conn.cursor(dictionary=True)
+        result = crud_class.update_class_booking(db_conn, cursor, booking_id, payload)
+        db_conn.commit()
+        return result
+    except HTTPException as e:
+        db_conn.rollback()
+        raise e
+    except Exception as e:
+        db_conn.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    finally:
+        cursor.close()
+
+@router.delete("/bookings/{booking_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_class_booking_route(booking_id: int, db_conn = Depends(get_db_connection)):
+    try:
+        cursor = db_conn.cursor(dictionary=True)
+        crud_class.delete_class_booking(db_conn, cursor, booking_id)
+        db_conn.commit()
+        return None
+    except HTTPException as e:
+        db_conn.rollback()
+        raise e
+    except Exception as e:
+        db_conn.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    finally:
+        cursor.close()
+
+@router.get("/by-trainer/{trainer_id}")
+def get_classes_by_trainer_route(trainer_id: int, db_conn_cursor = Depends(get_db_cursor)):
+    db_conn, cursor = db_conn_cursor
+    return crud_class.get_classes_by_trainer_id(db_conn, cursor, trainer_id)
+
+@router.get("/by-hall/{hall_id}")
+def get_classes_by_hall_route(hall_id: int, db_conn_cursor = Depends(get_db_cursor)):
+    db_conn, cursor = db_conn_cursor
+    return crud_class.get_classes_by_hall_id(db_conn, cursor, hall_id)
+
+@router.get("/by-date-range")
+def get_classes_by_date_range_route(start_date: str, end_date: str, db_conn_cursor = Depends(get_db_cursor)):
+    db_conn, cursor = db_conn_cursor
+    return crud_class.get_classes_by_date_range(db_conn, cursor, start_date, end_date)
