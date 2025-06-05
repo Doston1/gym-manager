@@ -1,0 +1,560 @@
+-- ✅ EXISTING: Users table
+CREATE TABLE users (
+    user_id INT AUTO_INCREMENT PRIMARY KEY,
+    firebase_uid VARCHAR(128) UNIQUE NOT NULL,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    first_name VARCHAR(100) NOT NULL,
+    last_name VARCHAR(100) NOT NULL,
+    phone VARCHAR(20),
+    date_of_birth DATE,
+    gender ENUM('Male', 'Female', 'Other', 'Prefer not to say'),
+    profile_image_path VARCHAR(255),
+    user_type ENUM('member', 'trainer', 'manager') NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    is_active BOOLEAN DEFAULT TRUE
+);
+
+-- 🛠️ MODIFIED: Members table (added active_cycle_id and fixed health_conditions typo)
+CREATE TABLE members (
+    member_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL UNIQUE,
+    weight DECIMAL(5,2) DEFAULT NULL,
+    height DECIMAL(5,2) DEFAULT NULL,
+    fitness_goal ENUM('Weight Loss','Muscle Gain','Endurance','Flexibility','General Fitness') DEFAULT NULL,
+    fitness_level ENUM('Beginner','Intermediate','Advanced') DEFAULT NULL,
+    health_conditions TEXT,
+    active_cycle_id INT DEFAULT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+    FOREIGN KEY (active_cycle_id) REFERENCES training_cycles(cycle_id)
+);
+
+-- ✅ EXISTING: Trainers
+CREATE TABLE trainers (
+    trainer_id INT PRIMARY KEY,
+    user_id INT NOT NULL UNIQUE,
+    specialization VARCHAR(255),
+    bio TEXT,
+    certifications TEXT,
+    years_of_experience INT,
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+);
+
+-- ✅ EXISTING: Managers
+CREATE TABLE managers (
+    manager_id INT PRIMARY KEY,
+    user_id INT NOT NULL UNIQUE,
+    department VARCHAR(100),
+    hire_date DATE,
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+);
+
+-- ✅ EXISTING: Membership Types
+CREATE TABLE membership_types (
+    membership_type_id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+    price_monthly DECIMAL(10,2) NOT NULL,
+    price_quarterly DECIMAL(10,2),
+    price_yearly DECIMAL(10,2),
+    max_classes_per_week INT,
+    custom_plans_period INT,
+    unlimited_custom_plans BOOLEAN DEFAULT FALSE,
+    class_booking_discount DECIMAL(5,2) DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- ✅ EXISTING: Memberships
+CREATE TABLE memberships (
+    membership_id INT AUTO_INCREMENT PRIMARY KEY,
+    member_id INT NOT NULL,
+    membership_type_id INT NOT NULL,
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
+    payment_status ENUM('Pending', 'Paid', 'Failed', 'Cancelled') DEFAULT 'Pending',
+    auto_renew BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (member_id) REFERENCES members(member_id) ON DELETE CASCADE,
+    FOREIGN KEY (membership_type_id) REFERENCES membership_types(membership_type_id)
+);
+
+-- ✅ EXISTING: Halls
+CREATE TABLE halls (
+    hall_id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+    max_capacity INT NOT NULL,
+    location VARCHAR(255),
+    equipment_available TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- ✅ EXISTING: Gym Hours
+CREATE TABLE gym_hours (
+    hours_id INT AUTO_INCREMENT PRIMARY KEY,
+    day_of_week ENUM('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday') NOT NULL,
+    opening_time TIME NOT NULL,
+    closing_time TIME NOT NULL,
+    is_closed BOOLEAN DEFAULT FALSE,
+    special_note TEXT,
+    is_holiday BOOLEAN DEFAULT FALSE,
+    UNIQUE (day_of_week)
+);
+
+-- ✅ EXISTING: Class Types
+CREATE TABLE class_types (
+    class_type_id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+    duration_minutes INT NOT NULL,
+    difficulty_level ENUM('Beginner', 'Intermediate', 'Advanced', 'All Levels') DEFAULT 'All Levels',
+    equipment_needed TEXT,
+    default_max_participants INT,
+    default_price DECIMAL(10,2) NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- ✅ EXISTING: Classes
+CREATE TABLE classes (
+    class_id INT AUTO_INCREMENT PRIMARY KEY,
+    class_type_id INT NOT NULL,
+    trainer_id INT NOT NULL,
+    hall_id INT NOT NULL,
+    date DATE NOT NULL,
+    start_time TIME NOT NULL,
+    end_time TIME NOT NULL,
+    max_participants INT NOT NULL,
+    current_participants INT DEFAULT 0,
+    price DECIMAL(10,2) NOT NULL,
+    status ENUM('Scheduled', 'Cancelled', 'Completed', 'Rescheduled') DEFAULT 'Scheduled',
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (class_type_id) REFERENCES class_types(class_type_id),
+    FOREIGN KEY (trainer_id) REFERENCES trainers(trainer_id),
+    FOREIGN KEY (hall_id) REFERENCES halls(hall_id),
+    INDEX (date, start_time)
+);
+
+-- ✅ EXISTING: Class Bookings
+CREATE TABLE class_bookings (
+    booking_id INT AUTO_INCREMENT PRIMARY KEY,
+    class_id INT NOT NULL,
+    member_id INT NOT NULL,
+    booking_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    payment_status ENUM('Pending', 'Paid', 'Free', 'Cancelled') NOT NULL,
+    amount_paid DECIMAL(10,2),
+    attendance_status ENUM('Not Attended', 'Attended', 'Cancelled', 'No Show') DEFAULT 'Not Attended',
+    cancellation_date TIMESTAMP NULL,
+    cancellation_reason TEXT,
+    email_notification_sent BOOLEAN DEFAULT FALSE,
+    UNIQUE (class_id, member_id),
+    FOREIGN KEY (class_id) REFERENCES classes(class_id),
+    FOREIGN KEY (member_id) REFERENCES members(member_id) ON DELETE CASCADE
+);
+
+-- ✅ EXISTING: Training Plans
+CREATE TABLE training_plans (
+    plan_id INT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    difficulty_level ENUM('Beginner', 'Intermediate', 'Advanced', 'All Levels') DEFAULT 'All Levels',
+    duration_weeks INT NOT NULL,
+    days_per_week INT NOT NULL,
+    primary_focus ENUM('Weight Loss', 'Muscle Gain', 'Endurance', 'Flexibility', 'Strength', 'General Fitness') NOT NULL,
+    secondary_focus ENUM('Weight Loss', 'Muscle Gain', 'Endurance', 'Flexibility', 'Strength', 'General Fitness'),
+    target_gender ENUM('Any', 'Male', 'Female') DEFAULT 'Any',
+    min_age INT,
+    max_age INT,
+    equipment_needed TEXT,
+    created_by INT,
+    is_custom BOOLEAN DEFAULT FALSE,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (created_by) REFERENCES trainers(trainer_id)
+);
+
+-- ✅ EXISTING: Training Plan Days
+CREATE TABLE training_plan_days (
+    day_id INT AUTO_INCREMENT PRIMARY KEY,
+    plan_id INT NOT NULL,
+    day_number INT NOT NULL,
+    name VARCHAR(255),
+    focus VARCHAR(255),
+    description TEXT,
+    duration_minutes INT,
+    calories_burn_estimate INT,
+    UNIQUE (plan_id, day_number),
+    FOREIGN KEY (plan_id) REFERENCES training_plans(plan_id) ON DELETE CASCADE
+);
+
+-- ✅ EXISTING: Exercises
+CREATE TABLE exercises (
+    exercise_id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    instructions TEXT,
+    difficulty_level ENUM('Beginner', 'Intermediate', 'Advanced') DEFAULT 'Beginner',
+    primary_muscle_group ENUM('Chest', 'Back', 'Shoulders', 'Arms', 'Legs', 'Core', 'Full Body', 'Cardio') NOT NULL,
+    secondary_muscle_groups TEXT,
+    equipment_needed TEXT,
+    image_url VARCHAR(255),
+    video_url VARCHAR(255),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- ✅ EXISTING: Training Day Exercises
+CREATE TABLE training_day_exercises (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    day_id INT NOT NULL,
+    exercise_id INT NOT NULL,
+    `order` INT NOT NULL,
+    sets INT,
+    reps VARCHAR(50),
+    rest_seconds INT,
+    duration_seconds INT,
+    notes TEXT,
+    FOREIGN KEY (day_id) REFERENCES training_plan_days(day_id) ON DELETE CASCADE,
+    FOREIGN KEY (exercise_id) REFERENCES exercises(exercise_id)
+);
+
+-- ✅ EXISTING: Member Saved Plans
+CREATE TABLE member_saved_plans (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    member_id INT NOT NULL,
+    plan_id INT NOT NULL,
+    saved_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    notes TEXT,
+    UNIQUE (member_id, plan_id),
+    FOREIGN KEY (member_id) REFERENCES members(member_id) ON DELETE CASCADE,
+    FOREIGN KEY (plan_id) REFERENCES training_plans(plan_id)
+);
+
+-- ✅ EXISTING: Custom Plan Requests
+CREATE TABLE custom_plan_requests (
+    request_id INT AUTO_INCREMENT PRIMARY KEY,
+    member_id INT NOT NULL,
+    goal TEXT NOT NULL,
+    days_per_week INT NOT NULL,
+    focus_areas TEXT,
+    equipment_available TEXT,
+    health_limitations TEXT,
+    request_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    assigned_trainer_id INT,
+    status ENUM('Pending', 'Assigned', 'In Progress', 'Completed', 'Cancelled') DEFAULT 'Pending',
+    completed_plan_id INT,
+    notes TEXT,
+    FOREIGN KEY (member_id) REFERENCES members(member_id) ON DELETE CASCADE,
+    FOREIGN KEY (assigned_trainer_id) REFERENCES trainers(trainer_id),
+    FOREIGN KEY (completed_plan_id) REFERENCES training_plans(plan_id)
+);
+
+-- ✅ EXISTING: Financial Transactions
+CREATE TABLE financial_transactions (
+    transaction_id INT AUTO_INCREMENT PRIMARY KEY,
+    member_id INT,
+    transaction_type ENUM('Membership Fee', 'Class Booking', 'Cancellation Fee', 'Refund', 'Other') NOT NULL,
+    amount DECIMAL(10,2) NOT NULL,
+    payment_method ENUM('Credit Card', 'Debit Card', 'Cash', 'Bank Transfer', 'Other') NOT NULL,
+    transaction_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    status ENUM('Pending', 'Completed', 'Failed', 'Refunded') DEFAULT 'Pending',
+    reference_id VARCHAR(255),
+    notes TEXT,
+    FOREIGN KEY (member_id) REFERENCES members(member_id)
+);
+
+-- ✅ EXISTING: Email Notifications
+CREATE TABLE email_notifications (
+    notification_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    subject VARCHAR(255) NOT NULL,
+    message TEXT NOT NULL,
+    sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    status ENUM('Sent', 'Failed', 'Pending') DEFAULT 'Pending',
+    related_type ENUM('Class Booking', 'Class Cancellation', 'Membership', 'Custom Plan', 'General') NOT NULL,
+    related_id INT,
+    FOREIGN KEY (user_id) REFERENCES users(user_id)
+);
+
+-- 🆕 NEW: Training Preferences
+CREATE TABLE training_preferences (
+    preference_id INT AUTO_INCREMENT PRIMARY KEY,
+    member_id INT NOT NULL,
+    week_start_date DATE NOT NULL,
+    day_of_week ENUM('Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday') NOT NULL,
+    start_time TIME NOT NULL,
+    end_time TIME NOT NULL,
+    preference_type ENUM('Preferred', 'Available', 'Not Available') NOT NULL,
+    trainer_id INT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (member_id) REFERENCES members(member_id) ON DELETE CASCADE,
+    FOREIGN KEY (trainer_id) REFERENCES trainers(trainer_id) ON DELETE SET NULL,
+    UNIQUE (member_id, week_start_date, day_of_week, start_time, end_time)
+);
+
+-- 🆕 NEW: member active plans
+CREATE TABLE member_active_plans (
+    active_plan_id INT AUTO_INCREMENT PRIMARY KEY,
+    member_id INT NOT NULL,
+    plan_id INT NOT NULL,
+    start_date DATE NOT NULL,
+    end_date DATE,
+    status ENUM('Active', 'Completed', 'Cancelled') DEFAULT 'Active',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_active_member_plan (member_id, status),
+    FOREIGN KEY (member_id) REFERENCES members(member_id) ON DELETE CASCADE,
+    FOREIGN KEY (plan_id) REFERENCES training_plans(plan_id)
+);
+
+
+
+-- 🆕 NEW: Weekly Schedule
+CREATE TABLE weekly_schedule (
+    schedule_id INT AUTO_INCREMENT PRIMARY KEY,
+    week_start_date DATE NOT NULL,
+    day_of_week ENUM('Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday') NOT NULL,
+    start_time TIME NOT NULL,
+    end_time TIME NOT NULL,
+    hall_id INT NOT NULL,
+    trainer_id INT NOT NULL,
+    max_capacity INT NOT NULL,
+    status ENUM('Scheduled', 'In Progress', 'Completed', 'Cancelled') DEFAULT 'Scheduled',
+    created_by INT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (hall_id) REFERENCES halls(hall_id),
+    FOREIGN KEY (trainer_id) REFERENCES trainers(trainer_id),
+    FOREIGN KEY (created_by) REFERENCES users(user_id)
+);
+
+-- 🆕 NEW: Schedule Members
+CREATE TABLE schedule_members (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    schedule_id INT NOT NULL,
+    member_id INT NOT NULL,
+    status ENUM('Assigned', 'Confirmed', 'Cancelled', 'Attended', 'No Show') DEFAULT 'Assigned',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (schedule_id) REFERENCES weekly_schedule(schedule_id) ON DELETE CASCADE,
+    FOREIGN KEY (member_id) REFERENCES members(member_id) ON DELETE CASCADE,
+    UNIQUE (schedule_id, member_id)
+);
+
+-- 🆕 NEW: Live Sessions
+CREATE TABLE live_sessions (
+    live_session_id INT AUTO_INCREMENT PRIMARY KEY,
+    schedule_id INT NOT NULL,
+    start_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    end_time TIMESTAMP NULL,
+    status ENUM('Started', 'In Progress', 'Completed', 'Cancelled') DEFAULT 'Started',
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (schedule_id) REFERENCES weekly_schedule(schedule_id) ON DELETE CASCADE
+);
+
+-- 🆕 NEW: Live Session Exercises
+CREATE TABLE live_session_exercises (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    live_session_id INT NOT NULL,
+    member_id INT NOT NULL,
+    exercise_id INT NOT NULL,
+    sets_completed INT,
+    actual_reps VARCHAR(100),
+    weight_used VARCHAR(100),
+    comments TEXT,
+    completed BOOLEAN DEFAULT FALSE,
+    completed_at TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (live_session_id) REFERENCES live_sessions(live_session_id) ON DELETE CASCADE,
+    FOREIGN KEY (member_id) REFERENCES members(member_id) ON DELETE CASCADE,
+    FOREIGN KEY (exercise_id) REFERENCES exercises(exercise_id) ON DELETE CASCADE
+);
+
+-- 🆕 NEW: Live Session Attendance
+CREATE TABLE live_session_attendance (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    live_session_id INT NOT NULL,
+    member_id INT NOT NULL,
+    check_in_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    check_out_time TIMESTAMP NULL,
+    status ENUM('Checked In', 'Checked Out', 'No Show') DEFAULT 'Checked In',
+    notes TEXT,
+    FOREIGN KEY (live_session_id) REFERENCES live_sessions(live_session_id) ON DELETE CASCADE,
+    FOREIGN KEY (member_id) REFERENCES members(member_id) ON DELETE CASCADE,
+    UNIQUE (live_session_id, member_id)
+);
+
+-- 🆕 NEW: Training Cycles
+CREATE TABLE training_cycles (
+    cycle_id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 🆕 NEW: Training Cycle Sessions
+CREATE TABLE training_cycle_sessions (
+    session_id INT AUTO_INCREMENT PRIMARY KEY,
+    cycle_id INT NOT NULL,
+    session_number INT NOT NULL,
+    muscle_focus ENUM('Upper Body', 'Lower Body', 'Core', 'Push', 'Pull', 'Legs', 'Full Body', 'Cardio', 'Other') NOT NULL,
+    duration_minutes INT DEFAULT 90,
+    description TEXT,
+    UNIQUE (cycle_id, session_number),
+    FOREIGN KEY (cycle_id) REFERENCES training_cycles(cycle_id) ON DELETE CASCADE
+);
+
+-- 🆕 NEW: Session Exercises
+CREATE TABLE session_exercises (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    session_id INT NOT NULL,
+    exercise_id INT NOT NULL,
+    `order` INT NOT NULL,
+    sets INT NOT NULL,
+    reps VARCHAR(50) NOT NULL,
+    rest_seconds INT,
+    notes TEXT,
+    FOREIGN KEY (session_id) REFERENCES training_cycle_sessions(session_id) ON DELETE CASCADE,
+    FOREIGN KEY (exercise_id) REFERENCES exercises(exercise_id)
+);
+
+
+
+-- 🆕 NEW: Manager Dashboard View
+CREATE VIEW manager_dashboard_view AS
+SELECT
+    (SELECT COUNT(*) FROM classes WHERE status = 'Scheduled') AS total_classes_scheduled,
+    (SELECT COUNT(*) FROM classes WHERE status = 'Completed') AS total_classes_completed,
+    (SELECT COUNT(*) FROM members WHERE active_cycle_id IS NOT NULL) AS active_members,
+    (SELECT IFNULL(SUM(amount), 0) FROM financial_transactions WHERE status = 'Completed') AS total_revenue
+;
+
+
+
+-- 🆕 NEW: Trainer Schedule View
+CREATE VIEW trainer_schedule_view AS
+SELECT
+    t.trainer_id,
+    u.first_name,
+    u.last_name,
+    c.class_id,
+    ct.name AS class_type,
+    c.date,
+    c.start_time,
+    c.end_time,
+    h.name AS hall_name
+FROM
+    trainers t
+JOIN users u ON t.user_id = u.user_id
+JOIN classes c ON t.trainer_id = c.trainer_id
+JOIN class_types ct ON c.class_type_id = ct.class_type_id
+JOIN halls h ON c.hall_id = h.hall_id
+WHERE
+    c.status = 'Scheduled'
+ORDER BY
+    c.date, c.start_time;
+
+
+
+-- 🆕 NEW: Member Activity View
+CREATE VIEW member_activity_view AS
+SELECT
+    m.member_id,
+    u.first_name,
+    u.last_name,
+    COUNT(cb.class_id) AS classes_booked,
+    COUNT(sm.schedule_id) AS training_sessions_scheduled,
+    map.plan_id AS active_plan_id,
+    tp.title AS active_plan_title
+FROM
+    members m
+JOIN users u ON m.user_id = u.user_id
+LEFT JOIN class_bookings cb ON m.member_id = cb.member_id AND cb.payment_status = 'Paid'
+LEFT JOIN schedule_members sm ON m.member_id = sm.member_id
+LEFT JOIN member_active_plans map ON m.member_id = map.member_id AND map.status = 'Active'
+LEFT JOIN training_plans tp ON map.plan_id = tp.plan_id
+GROUP BY
+    m.member_id, u.first_name, u.last_name, map.plan_id, tp.title;
+
+
+
+-- 🆕 NEW: Revenue Summary View
+CREATE VIEW revenue_summary_view AS
+SELECT
+    transaction_type,
+    SUM(amount) AS total_amount,
+    COUNT(*) AS total_transactions
+FROM
+    financial_transactions
+WHERE
+    status = 'Completed'
+GROUP BY
+    transaction_type;
+
+
+-- 🆕 NEW: Available Halls View
+CREATE VIEW available_halls_view AS
+SELECT
+    h.hall_id,
+    h.name AS hall_name,
+    h.max_capacity,
+    tp.day_of_week,
+    tp.start_time,
+    tp.end_time,
+    tp.week_start_date
+FROM
+    halls h
+CROSS JOIN
+    (SELECT DISTINCT day_of_week, start_time, end_time, week_start_date FROM training_preferences) tp
+LEFT JOIN
+    weekly_schedule ws ON
+        h.hall_id = ws.hall_id
+        AND ws.day_of_week = tp.day_of_week
+        AND ws.start_time = tp.start_time
+        AND ws.end_time = tp.end_time
+        AND ws.week_start_date = tp.week_start_date
+WHERE
+    ws.schedule_id IS NULL
+    AND h.is_active = TRUE;
+
+
+
+-- 🆕 NEW: Available Trainers View
+CREATE VIEW available_trainers_view AS
+SELECT
+    t.trainer_id,
+    u.first_name,
+    u.last_name,
+    tp.day_of_week,
+    tp.start_time,
+    tp.end_time,
+    tp.week_start_date
+FROM
+    trainers t
+JOIN
+    users u ON t.user_id = u.user_id
+CROSS JOIN
+    (SELECT DISTINCT day_of_week, start_time, end_time, week_start_date FROM training_preferences) tp
+LEFT JOIN
+    weekly_schedule ws ON
+        t.trainer_id = ws.trainer_id
+        AND ws.day_of_week = tp.day_of_week
+        AND ws.start_time = tp.start_time
+        AND ws.end_time = tp.end_time
+        AND ws.week_start_date = tp.week_start_date
+WHERE
+    ws.schedule_id IS NULL;
+
