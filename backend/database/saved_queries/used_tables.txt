@@ -24,9 +24,7 @@ CREATE TABLE members (
     fitness_goal ENUM('Weight Loss','Muscle Gain','Endurance','Flexibility','General Fitness') DEFAULT NULL,
     fitness_level ENUM('Beginner','Intermediate','Advanced') DEFAULT NULL,
     health_conditions TEXT,
-    active_cycle_id INT DEFAULT NULL,
     FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
-    FOREIGN KEY (active_cycle_id) REFERENCES training_cycles(cycle_id)
 );
 
 -- ✅ EXISTING: Trainers
@@ -301,6 +299,61 @@ CREATE TABLE training_preferences (
     UNIQUE (member_id, week_start_date, day_of_week, start_time, end_time)
 );
 
+-- New table for logging completed workout sessions by a member
+CREATE TABLE logged_workouts (
+    logged_workout_id INT AUTO_INCREMENT PRIMARY KEY,
+    member_id INT NOT NULL,
+    member_active_plan_id INT NULL, -- Which of their active plans this workout belongs to (if any)
+    training_plan_day_id INT NULL,  -- Which specific day template from a training_plan this workout represents (if any)
+    workout_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- When the workout was performed/logged
+    duration_minutes_actual INT NULL, -- Actual time spent on the workout
+    notes_overall_session TEXT NULL,  -- Member's or trainer's notes on the whole session
+    source ENUM('self_logged', 'from_live_session', 'trainer_logged') DEFAULT 'self_logged', -- How this log was created
+    live_session_id INT NULL,       -- If this log was generated from a formal live_session
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (member_id) REFERENCES members(member_id) ON DELETE CASCADE,
+    FOREIGN KEY (member_active_plan_id) REFERENCES member_active_plans(active_plan_id) ON DELETE SET NULL,
+    FOREIGN KEY (training_plan_day_id) REFERENCES training_plan_days(day_id) ON DELETE SET NULL,
+    FOREIGN KEY (live_session_id) REFERENCES live_sessions(live_session_id) ON DELETE SET NULL,
+    INDEX idx_lw_member_date (member_id, workout_date)
+);
+
+-- New table for logging details of each exercise performed within a logged_workout
+CREATE TABLE logged_workout_exercises (
+    log_exercise_id INT AUTO_INCREMENT PRIMARY KEY,
+    logged_workout_id INT NOT NULL,
+    exercise_id INT NOT NULL,
+    training_day_exercise_id INT NULL, -- The blueprint prescription ID from training_day_exercises this log corresponds to (if any)
+    `order_in_workout` INT NOT NULL,    -- Sequence of this exercise in the logged workout
+
+    -- Prescribed values (copied from blueprint for historical reference/comparison at the time of logging)
+    sets_prescribed INT NULL,
+    reps_prescribed VARCHAR(50) NULL,   -- e.g., "8-12", "AMRAP"
+    weight_prescribed VARCHAR(50) NULL, -- e.g., "70% 1RM", "Bodyweight" (could be NULL if not applicable)
+    rest_prescribed_seconds INT NULL,
+    duration_prescribed_seconds INT NULL,
+
+    -- Actual performance
+    sets_completed INT NULL,
+    reps_actual_per_set VARCHAR(255) NULL,    -- e.g., "12,10,8" (comma-separated for each set)
+    weight_actual_per_set VARCHAR(255) NULL,  -- e.g., "50,50,55" (comma-separated, units assumed consistent or noted elsewhere)
+    rest_actual_seconds_per_set VARCHAR(255) NULL, -- e.g. "60,75,90" (if variable rest was taken)
+    duration_actual_seconds INT NULL,      -- For timed exercises like planks
+    
+    notes_exercise_specific TEXT NULL,     -- Member/trainer notes for this specific exercise instance
+    completed_at TIMESTAMP NULL,           -- If the member explicitly marked this specific exercise instance as completed
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (logged_workout_id) REFERENCES logged_workouts(logged_workout_id) ON DELETE CASCADE,
+    FOREIGN KEY (exercise_id) REFERENCES exercises(exercise_id) ON DELETE RESTRICT, -- Prevent exercise deletion if logged
+    FOREIGN KEY (training_day_exercise_id) REFERENCES training_day_exercises(id) ON DELETE SET NULL, -- Link to original prescription
+    UNIQUE KEY unique_workout_exercise_order (logged_workout_id, `order_in_workout`)
+);
+
 -- 🆕 NEW: member active plans
 CREATE TABLE member_active_plans (
     active_plan_id INT AUTO_INCREMENT PRIMARY KEY,
@@ -315,6 +368,8 @@ CREATE TABLE member_active_plans (
     FOREIGN KEY (member_id) REFERENCES members(member_id) ON DELETE CASCADE,
     FOREIGN KEY (plan_id) REFERENCES training_plans(plan_id)
 );
+
+
 
 
 
@@ -363,24 +418,6 @@ CREATE TABLE live_sessions (
     FOREIGN KEY (schedule_id) REFERENCES weekly_schedule(schedule_id) ON DELETE CASCADE
 );
 
--- 🆕 NEW: Live Session Exercises
-CREATE TABLE live_session_exercises (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    live_session_id INT NOT NULL,
-    member_id INT NOT NULL,
-    exercise_id INT NOT NULL,
-    sets_completed INT,
-    actual_reps VARCHAR(100),
-    weight_used VARCHAR(100),
-    comments TEXT,
-    completed BOOLEAN DEFAULT FALSE,
-    completed_at TIMESTAMP NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (live_session_id) REFERENCES live_sessions(live_session_id) ON DELETE CASCADE,
-    FOREIGN KEY (member_id) REFERENCES members(member_id) ON DELETE CASCADE,
-    FOREIGN KEY (exercise_id) REFERENCES exercises(exercise_id) ON DELETE CASCADE
-);
 
 -- 🆕 NEW: Live Session Attendance
 CREATE TABLE live_session_attendance (
@@ -396,40 +433,6 @@ CREATE TABLE live_session_attendance (
     UNIQUE (live_session_id, member_id)
 );
 
--- 🆕 NEW: Training Cycles
-CREATE TABLE training_cycles (
-    cycle_id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
-    description TEXT,
-    is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- 🆕 NEW: Training Cycle Sessions
-CREATE TABLE training_cycle_sessions (
-    session_id INT AUTO_INCREMENT PRIMARY KEY,
-    cycle_id INT NOT NULL,
-    session_number INT NOT NULL,
-    muscle_focus ENUM('Upper Body', 'Lower Body', 'Core', 'Push', 'Pull', 'Legs', 'Full Body', 'Cardio', 'Other') NOT NULL,
-    duration_minutes INT DEFAULT 90,
-    description TEXT,
-    UNIQUE (cycle_id, session_number),
-    FOREIGN KEY (cycle_id) REFERENCES training_cycles(cycle_id) ON DELETE CASCADE
-);
-
--- 🆕 NEW: Session Exercises
-CREATE TABLE session_exercises (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    session_id INT NOT NULL,
-    exercise_id INT NOT NULL,
-    `order` INT NOT NULL,
-    sets INT NOT NULL,
-    reps VARCHAR(50) NOT NULL,
-    rest_seconds INT,
-    notes TEXT,
-    FOREIGN KEY (session_id) REFERENCES training_cycle_sessions(session_id) ON DELETE CASCADE,
-    FOREIGN KEY (exercise_id) REFERENCES exercises(exercise_id)
-);
 
 
 
