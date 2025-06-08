@@ -33,16 +33,19 @@ def test_os_route(): # Renamed to avoid conflict if test_os is imported elsewher
     return {"message": "OS test route is alive"}
 
 # API Routes (import from routes folder)
-from backend.routes import users, classes, training 
+from backend.routes import users, classes, custom_requests, facilities, finance, training_blueprints, training_execution, scheduling, notifications 
 # Add other route modules here as they are refactored/created
 # e.g., from backend.routes import facilities, memberships, analytics_routes, etc.
 
 api.include_router(users.router) 
 api.include_router(classes.router)
-api.include_router(training.router)
-# api.include_router(facilities.router)
-# api.include_router(memberships.router)
-# ... and so on for all entities in used_tables.txt
+api.include_router(custom_requests.router)
+api.include_router(facilities.router)
+api.include_router(finance.router)
+api.include_router(training_blueprints.router)
+api.include_router(training_execution.router)
+api.include_router(scheduling.router)
+api.include_router(notifications.router)
 
 # Run API
 if __name__ == "__main__":

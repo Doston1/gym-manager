@@ -175,7 +175,7 @@ def get_member_by_user_id_pk(db_conn, cursor, user_id_pk: int):
 
 def create_member_for_user(db_conn, cursor, user_id_pk: int, member_data: dict):
     required_fields = []
-    optional_fields = ["weight", "height", "fitness_goal", "fitness_level", "health_conditions", "active_cycle_id"]
+    optional_fields = ["weight", "height", "fitness_goal", "fitness_level", "health_conditions"]
     try:
         validated_data = validate_payload(member_data, required_fields, optional_fields)
     except ValueError as e:
@@ -188,20 +188,16 @@ def create_member_for_user(db_conn, cursor, user_id_pk: int, member_data: dict):
         "fitness_goal": validated_data.get("fitness_goal", "General Fitness"),
         "fitness_level": validated_data.get("fitness_level", "Beginner"),
         "health_conditions": validated_data.get("health_conditions"),
-        "active_cycle_id": validated_data.get("active_cycle_id")
     }
     sql = get_sql("members_create")
     try:
         cursor.execute(sql, insert_params)
     except MySQLError as e: # Use MySQLError
-        # Check for specific foreign key errors if active_cycle_id is invalid
-        if e.errno == 1452 and 'active_cycle_id' in validated_data and validated_data['active_cycle_id'] is not None:
-             raise HTTPException(status_code=400, detail=f"Invalid 'active_cycle_id': Cycle does not exist.")
         raise HTTPException(status_code=500, detail=f"Database error creating member record: {e}")
 
 
 def update_member_details_by_user_id_pk(db_conn, cursor, user_id_pk: int, member_update_data: dict):
-    optional_fields = ["weight", "height", "fitness_goal", "fitness_level", "health_conditions", "active_cycle_id"]
+    optional_fields = ["weight", "height", "fitness_goal", "fitness_level", "health_conditions"]
     try:
         validated_data = validate_payload(member_update_data, [], optional_fields)
     except ValueError as e:
@@ -227,8 +223,6 @@ def update_member_details_by_user_id_pk(db_conn, cursor, user_id_pk: int, member
         cursor.execute(formatted_sql, update_params)
         return get_member_by_user_id_pk(db_conn, cursor, user_id_pk)
     except MySQLError as e: # Use MySQLError
-        if e.errno == 1452 and 'active_cycle_id' in validated_data and validated_data['active_cycle_id'] is not None:
-             raise HTTPException(status_code=400, detail=f"Invalid 'active_cycle_id': Cycle does not exist.")
         raise HTTPException(status_code=500, detail=f"Database error updating member: {e}")
 
 # --- Trainer Operations ---

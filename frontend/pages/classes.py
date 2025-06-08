@@ -19,7 +19,8 @@ async def get_current_user():
 async def user_full_details(user):
     # Fetch full user details from the backend
     async with httpx.AsyncClient() as client:
-        response = await client.get(f'http://{API_HOST}:{API_PORT}/users/{user["user_id"]}')
+        response = await client.get(f'http://{API_HOST}:{API_PORT}/users/{user["auth_id"]}')
+        print(f"DEBUG: user_full_details response: {response.text}")
         if response.status_code == 200:
             return response.json()
         else:
@@ -44,6 +45,7 @@ async def classes_page():
     user = await get_current_user()
     if user:
         # Fetch full user details from the backend
+        print("DEBUG: classes_page.py User:", user)
         user = await user_full_details(user)
     print("DEBUG: classes_page.py User:", user)
     is_manager = user and user.get("user_type") == "manager"
