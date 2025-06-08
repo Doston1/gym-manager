@@ -1,3 +1,4 @@
+from typing import Dict, List
 from backend.database.db_utils import get_sql, format_records, validate_payload
 from mysql.connector import Error as MySQLError
 from fastapi import HTTPException, status
@@ -308,4 +309,109 @@ def remove_member_from_schedule(db_conn, cursor, sm_id: int):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Schedule member link ID {sm_id} not found.")
         return True
     except MySQLError as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"DB error: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"DB error: {str(e)}")  
+
+
+def batch_upsert_training_preferences(db_conn, cursor, member_id: int, week_start_date: str, preferences_list: List[Dict]):
+    # This function will delete all existing preferences for the member and week,
+    # then insert all new ones. This is a common "replace all" strategy for batch.
+    # Alternatively, one could try to update existing and insert new, which is more complex.
+
+    # Validate member_id
+    # crud_user.get_member_by_id_pk(db_conn, cursor, member_id) 
+
+    # Step 1: Delete existing preferences for this member and week
+    delete_sql = get_sql("training_preferences_delete_by_member_and_week")
+    try:
+        cursor.execute(delete_sql, {"member_id": member_id, "week_start_date": week_start_date})
+        # No need to check rowcount, it's fine if none existed
+    except MySQLError as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"DB error deleting old preferences: {str(e)}")
+
+    # Step 2: Insert new preferences
+    created_preferences = []
+    if not preferences_list: # If empty list provided, it means clear all preferences
+        return []
+
+    create_sql = get_sql("training_preferences_create")
+    required_pref_fields = ["day_of_week", "start_time", "end_time", "preference_type"]
+    optional_pref_fields = ["trainer_id"]
+
+    for pref_data in preferences_list:
+        try:
+            # Add member_id and week_start_date from function params, not expecting in each pref_data item
+            full_pref_data = {
+                "member_id": member_id,
+                "week_start_date": week_start_date,
+                **pref_data # Spread the individual preference data
+            }
+            validated_data = validate_payload(full_pref_data, 
+                                                ["member_id", "week_start_date"] + required_pref_fields, 
+                                                optional_pref_fields)
+        except ValueError as e:
+            # Skip this invalid preference data or raise an error for the whole batch
+            print(f"Skipping invalid preference data: {pref_data} due to {str(e)}")
+            continue # Or raise HTTPException for the batch
+
+        try:
+            cursor.execute(create_sql, validated_data)
+            pref_id = cursor.lastrowid
+            if pref_id:
+                # Fetching each one individually after insert can be slow for large batches.
+                # Consider returning the input data with the new ID, or just a success count.
+                # For now, let's get the created one for consistency.
+                created_preferences.append(get_training_preference_by_id(db_conn, cursor, pref_id))
+            else:
+                # This shouldn't happen if execute was successful and table has autoincrement
+                print(f"Warning: No lastrowid for preference: {validated_data}")
+        except MySQLError as e:
+            # If one insert fails, the whole transaction (managed by the route) should roll back.
+            if e.errno == 1062: # Unique constraint
+                    raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Preference slot conflict for {validated_data.get('day_of_week')} {validated_data.get('start_time')}.")
+            if e.errno == 1452: # FK (e.g. bad trainer_id if provided)
+                    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid trainer_id for preference.")
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"DB error inserting preference: {str(e)}")
+            
+    return created_preferences
+
+def generate_weekly_schedule_for_week(db_conn, cursor, week_start_date_str: str, created_by_user_id: int):
+    # This is a placeholder for a complex scheduling algorithm.
+    # A real implementation would:
+    # 1. Fetch all preferences for the week.
+    #    sql_prefs = "SELECT * FROM training_preferences WHERE week_start_date = %s AND preference_type IN ('Preferred', 'Available')"
+    #    cursor.execute(sql_prefs, (week_start_date_str,))
+    #    preferences = cursor.fetchall()
+    #
+    # 2. Group preferences by member, then by desired slot (day, time, potentially trainer).
+    #
+    # 3. For each desired slot/member:
+    #    a. Find available trainers (check existing weekly_schedule for conflicts for preferred trainer, or general availability).
+    #    b. Find available halls (check existing weekly_schedule for conflicts).
+    #    c. If match found:
+    #       i. Create a weekly_schedule entry.
+    #          schedule_data = { ... "created_by": created_by_user_id ... }
+    #          created_schedule = create_weekly_schedule(db_conn, cursor, schedule_data) # This create_weekly_schedule already checks for overlap
+    #       ii. Create a schedule_members entry linking the member to this new schedule.
+    #           sm_data = {"schedule_id": created_schedule['schedule_id'], "member_id": pref['member_id'], "status": "Assigned"}
+    #           add_member_to_schedule(db_conn, cursor, sm_data) # This add_member_to_schedule already checks capacity
+    #
+    # 4. Handle conflicts, prioritization, fairness etc. (this is the hard part).
+    #
+    # For this example, we'll just return a success message.
+    # In a real system, this function would modify the database and potentially return stats.
+    
+    print(f"Placeholder: Schedule generation initiated for week {week_start_date_str} by user {created_by_user_id}.")
+    # Simulate some action
+    # Example: Check if any preferences exist for that week.
+    sql_prefs_exist = get_sql("training_preferences_check_for_week") # Needs: SELECT 1 FROM training_preferences WHERE week_start_date = %s LIMIT 1;
+    try:
+        cursor.execute(sql_prefs_exist, (week_start_date_str,))
+        if not cursor.fetchone():
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"No training preferences found for week {week_start_date_str} to generate a schedule from.")
+    except MySQLError as e:
+         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"DB error checking preferences: {str(e)}")
+
+    # Actual generation logic would go here.
+    # If successful, it would have made INSERTs. The commit is handled by the route.
+    
+    return {"message": f"Schedule generation process initiated for week {week_start_date_str}. Check the schedule to see results."}

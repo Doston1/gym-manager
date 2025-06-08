@@ -53,7 +53,7 @@ async def get_current_user_data(request: Request, db_conn = Depends(get_db_conne
             
             user_data_for_session = {
                 "auth_id": user["auth_id"], # Changed
-                "user_id_pk": user["user_id"],
+                "user_id": user["user_id"],
                 "email": user["email"],
                 "first_name": user["first_name"],
                 "last_name": user["last_name"],
@@ -133,7 +133,7 @@ def setup_auth_routes(api: FastAPI):
                     
                     member_details = { # Default member details for a new user
                         "weight": None, "height": None, "fitness_goal": "General Fitness",
-                        "fitness_level": "Beginner", "health_conditions": None, "active_cycle_id": None
+                        "fitness_level": "Beginner", "health_conditions": None
                     }
                     new_user_data_with_member = {**new_user_data, "member_details": member_details}
 

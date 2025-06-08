@@ -45,3 +45,9 @@ DELETE FROM schedule_members WHERE id = %s;
 
 -- NAME: delete_by_schedule_and_member
 DELETE FROM schedule_members WHERE schedule_id = %(schedule_id)s AND member_id = %(member_id)s;
+
+
+-- NAME: get_by_schedule_id_and_member_id
+SELECT id, schedule_id, member_id, status, training_plan_day_id
+FROM schedule_members
+WHERE schedule_id = %(schedule_id)s AND member_id = %(member_id)s;

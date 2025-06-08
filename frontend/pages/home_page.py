@@ -12,13 +12,16 @@ async def home_page(user_id: str = None):
     if user:
         # Fetch full user details from the backend
         async with httpx.AsyncClient() as client:
-            response = await client.get(f'http://{API_HOST}:{API_PORT}/users/{user["user_id"]}')
+            response = await client.get(f'http://{API_HOST}:{API_PORT}/users/{user["auth_id"]}')
+            print(f"DEBUG: home_page.py user full details response: {response.text}")
             if response.status_code == 200:
                 user = response.json()
                 if user.get("first_name") == "temp_first_name" and user.get("last_name") == "temp_last_name":
                     # If the user is a temporary user, redirect to full details page
                     ui.navigate.to('/full-details')
                     return
+                else:
+                    print("DEBUG: in else home_page.py User:", user)
 
     print("DEBUG: home_page.py User:", user)
 

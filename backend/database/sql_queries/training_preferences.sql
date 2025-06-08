@@ -30,3 +30,7 @@ DELETE FROM training_preferences WHERE preference_id = %s;
 -- NAME: delete_by_member_and_week
 DELETE FROM training_preferences
 WHERE member_id = %(member_id)s AND week_start_date = %(week_start_date)s;
+
+
+-- NAME: check_for_week
+SELECT 1 FROM training_preferences WHERE week_start_date = %s LIMIT 1;

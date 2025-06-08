@@ -19,7 +19,7 @@ async def get_current_user():
 async def user_full_details(user):
     # Fetch full user details from the backend
     async with httpx.AsyncClient() as client:
-        response = await client.get(f'http://{API_HOST}:{API_PORT}/users/{user["user_id"]}')
+        response = await client.get(f'http://{API_HOST}:{API_PORT}/users/{user["auth_id"]}')
         if response.status_code == 200:
             return response.json()
         else:

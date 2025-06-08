@@ -321,7 +321,6 @@ DELIMITER ;
 """
 
 # These changes to members table fix the existing syntax issue in the members table definition
-# and adds an active_cycle_id field to track which training cycle a member is currently following
 fixed_members_table = """
 CREATE TABLE members (
     member_id INT AUTO_INCREMENT PRIMARY KEY,
@@ -331,10 +330,8 @@ CREATE TABLE members (
     fitness_goal ENUM('Weight Loss','Muscle Gain','Endurance','Flexibility','General Fitness') DEFAULT NULL,
     fitness_level ENUM('Beginner','Intermediate','Advanced') DEFAULT NULL,
     health_conditions TEXT,
-    active_cycle_id INT NULL,
     UNIQUE KEY user_id (user_id),
     CONSTRAINT members_ibfk_1 FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE,
-    CONSTRAINT members_ibfk_2 FOREIGN KEY (active_cycle_id) REFERENCES training_cycles (cycle_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 """
 

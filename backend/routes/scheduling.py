@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Request
 from backend.database.base import get_db_cursor, get_db_connection
 from backend.database.crud import scheduling as crud_scheduling
 from mysql.connector import Error as MySQLError
-from typing import List, Optional # For query parameters
+from typing import List, Optional, Dict # For query parameters
 
 router = APIRouter(prefix="/scheduling", tags=["Scheduling"])
 
@@ -248,6 +248,75 @@ def remove_member_from_schedule_route(sm_id: int, db_conn = Depends(get_db_conne
     except MySQLError as e:
         if db_conn: db_conn.rollback()
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"DB error: {str(e)}")
+    except Exception as e:
+        if db_conn: db_conn.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Unexpected error: {str(e)}")
+    finally:
+        if cursor: cursor.close()
+
+
+@router.post("/preferences/batch", status_code=status.HTTP_200_OK) # Or 201 if you consider it a creation of a state
+async def batch_upsert_training_preferences_route(request: Request, db_conn = Depends(get_db_connection)):
+    payload = await request.json() 
+    # Expected payload: {"member_id": int, "week_start_date": "YYYY-MM-DD", "preferences": List[Dict]}
+    # Or, derive member_id from authenticated user on backend.
+    
+    cursor = None
+    try:
+        cursor = db_conn.cursor(dictionary=True)
+        
+        member_id = payload.get("member_id") # Or from current_user
+        week_start_date = payload.get("week_start_date")
+        preferences_list = payload.get("preferences")
+
+        if not all([member_id, week_start_date, isinstance(preferences_list, list)]):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing member_id, week_start_date, or preferences list in payload.")
+
+        # Add authorization: member can only set their own preferences.
+        # current_authenticated_user = await get_current_user_data(request, db_conn) # Example
+        # if current_authenticated_user.get('member_id_pk') != member_id:
+        #     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to set preferences for this member.")
+
+        result = crud_scheduling.batch_upsert_training_preferences(
+            db_conn, cursor, member_id, week_start_date, preferences_list
+        )
+        db_conn.commit()
+        return result
+    except HTTPException:
+        if db_conn: db_conn.rollback()
+        raise
+    except MySQLError as e:
+        if db_conn: db_conn.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"DB error processing batch preferences: {str(e)}")
+    except Exception as e:
+        if db_conn: db_conn.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Unexpected error: {str(e)}")
+    finally:
+        if cursor: cursor.close()
+
+
+@router.post("/weekly-schedules/generate/{week_start_date_iso}", status_code=status.HTTP_200_OK)
+async def generate_weekly_schedule_route(week_start_date_iso: str, request: Request, db_conn = Depends(get_db_connection)):
+    cursor = None
+    try:
+        cursor = db_conn.cursor(dictionary=True)
+        
+        # Authorization: Only managers (or specific roles) should do this
+        # current_user = await get_current_user_data(request, db_conn) # Assuming you have this
+        # if current_user.get("user_type") != "manager":
+        #     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to generate schedules.")
+        # created_by_user_id = current_user.get("user_id_pk")
+        created_by_user_id = 1 # Placeholder - replace with actual authenticated user ID
+
+        result = crud_scheduling.generate_weekly_schedule_for_week(db_conn, cursor, week_start_date_iso, created_by_user_id)
+        db_conn.commit() # Commit any changes made by the generation logic
+        return result
+    except HTTPException:
+        if db_conn: db_conn.rollback()
+        raise
+    except MySQLError as e:
+        if db_conn: db_conn.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"DB error during schedule generation: {str(e)}")
     except Exception as e:
         if db_conn: db_conn.rollback()
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Unexpected error: {str(e)}")
