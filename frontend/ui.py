@@ -12,7 +12,7 @@ from .pages.my_training_plans import mytrainingplans_page
 from .pages.full_details import full_details
 from .pages.working_hours import working_hours
 from .pages.training_preferences import display_training_preferences
-from .pages.weekly_schedule import display_weekly_schedule
+from .pages.weekly_schedule import weekly_schedule_page
 from .pages.live_dashboard import display_live_dashboard
 
 
@@ -30,7 +30,7 @@ ui.page('/mytrainingplans')(mytrainingplans_page)
 ui.page('/full-details')(full_details)
 ui.page('/work-hours')(working_hours)  # Reusing home_page for work hours
 ui.page('/training-preferences')(display_training_preferences)
-ui.page('/weekly-schedule')(display_weekly_schedule)
+ui.page('/weekly-schedule')(weekly_schedule_page)
 ui.page('/live-dashboard')(display_live_dashboard)
 
 @ui.page('/callback')

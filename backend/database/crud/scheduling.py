@@ -228,10 +228,18 @@ def get_schedule_member_by_id(db_conn, cursor, sm_id: int): # sm_id is the PK of
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"DB error: {str(e)}")
 
 def get_schedule_members_by_schedule_id(db_conn, cursor, schedule_id: int):
-    get_weekly_schedule_by_id(db_conn, cursor, schedule_id) # Ensure schedule exists
     sql = get_sql("schedule_members_get_by_schedule_id")
     try:
         cursor.execute(sql, (schedule_id,))
+        return format_records(cursor.fetchall())
+    except MySQLError as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"DB error: {str(e)}")
+
+def get_schedule_members_by_member_id_and_week(db_conn, cursor, member_id: int, week_start_date: str):
+    """Get all schedule entries for a specific member for a given week"""
+    sql = get_sql("schedule_members_get_by_member_id_and_week")
+    try:
+        cursor.execute(sql, {"member_id": member_id, "week_start_date": week_start_date})
         return format_records(cursor.fetchall())
     except MySQLError as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"DB error: {str(e)}")

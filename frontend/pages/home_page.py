@@ -13,7 +13,7 @@ async def home_page(user_id: str = None):
         # Fetch full user details from the backend
         async with httpx.AsyncClient() as client:
             response = await client.get(f'http://{API_HOST}:{API_PORT}/users/{user["auth_id"]}')
-            print(f"DEBUG: home_page.py user full details response: {response.text}")
+            # print(f"DEBUG: home_page.py user full details response: {response.text}")
             if response.status_code == 200:
                 user = response.json()
                 if user.get("first_name") == "temp_first_name" and user.get("last_name") == "temp_last_name":
@@ -21,9 +21,10 @@ async def home_page(user_id: str = None):
                     ui.navigate.to('/full-details')
                     return
                 else:
-                    print("DEBUG: in else home_page.py User:", user)
+                    pass
+                    # print("DEBUG: in else home_page.py User:", user)
 
-    print("DEBUG: home_page.py User:", user)
+    # print("DEBUG: home_page.py User:", user)
 
     # Navbar
     with ui.header().classes('bg-transparent text-white p-4 flex justify-between items-center shadow-lg backdrop-blur-md'):
@@ -92,14 +93,14 @@ async def get_current_user():
             "localStorage.getItem('token')",
             timeout=5.0  # increased timeout
         )
-        print("DEBUG: home_page.py - get current user = token:", token)
+        # print("DEBUG: home_page.py - get current user = token:", token)
         if token:
             headers = {"Authorization": f"Bearer {token}"}
             async with httpx.AsyncClient() as client:
                 response = await client.get(f"http://{API_HOST}:{API_PORT}/me", headers=headers)
             
-            print("DEBUG: /me status:", response.status_code)
-            print("DEBUG: /me response:", response.text)
+            # print("DEBUG: /me status:", response.status_code)
+            # print("DEBUG: /me response:", response.text)
 
             if response.status_code == 200:
                 return response.json()

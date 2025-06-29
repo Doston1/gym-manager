@@ -1,10 +1,10 @@
-from nicegui import ui, app # Added app import
+from nicegui import ui, app
 import requests
 import datetime
-from ..config import API_HOST, API_PORT # Added API_HOST, API_PORT
 import json
 import asyncio
-import httpx # Added httpx import
+import httpx
+from ..config import API_HOST, API_PORT
 
 # --- Copied Helper Functions ---
 async def get_current_user():
@@ -35,6 +35,25 @@ async def is_preference_day():
     # Simple check for Thursday (weekday 3)
     return datetime.date.today().weekday() == 3
 
+# Placeholder for checking active session - Requires Backend Implementation
+async def user_has_active_session(user):
+    if not user:
+        return False
+    try:
+        token = await ui.run_javascript("localStorage.getItem('token')")
+        if not token:
+            return False
+        headers = {"Authorization": f"Bearer {token}"}
+        async with httpx.AsyncClient() as client:
+            # This endpoint should check if the user (member/trainer) has a session NOW.
+            response = await client.get(f"http://{API_HOST}:{API_PORT}/training/live/sessions/current", headers=headers)
+            if response.status_code == 200 and response.json():
+                return True
+            return False
+    except Exception as e:
+        print(f"Error checking active session: {e}")
+        return False
+
 # --- End Copied Helper Functions ---
 
 
@@ -59,10 +78,9 @@ async def display_training_preferences(): # Made async
             if await is_preference_day():
                  ui.button('Training Preferences', on_click=lambda: ui.navigate.to('/training-preferences')).classes('text-white hover:text-blue-300')
 
-            # Conditional Live Dashboard Link (Needs backend check)
-            # Placeholder: Add logic here later if needed, requires async check
-            # if await user_has_active_session(user): # Example function
-            #    ui.button('Live Dashboard', on_click=lambda: ui.navigate.to('/live-dashboard')).classes('text-white hover:text-blue-300')
+            # Conditional Live Dashboard Link
+            if await user_has_active_session(user):
+               ui.button('Live Dashboard', on_click=lambda: ui.navigate.to('/live-dashboard')).classes('text-white hover:text-blue-300')
 
 
             if user:
@@ -128,11 +146,14 @@ async def display_training_preferences(): # Made async
                     return await checkPreferences();
                 ''')
                 
+                # Debug: Print the response
+                print(f"API Response: {response}")
+                
                 # Clear the container
                 preference_container.clear()
                 
                 # Parse the response
-                if response:
+                if response and not response.get("detail"):  # Check for API error details
                     can_set_preferences = response.get("can_set_preferences", False)
                     week_start_date = response.get("week_start_date", "")
                     existing_preferences = response.get("preferences", [])
@@ -237,7 +258,7 @@ async def display_training_preferences(): # Made async
                                                     pref_select.disable(not can_set_preferences)
                                                     
                                                     # For storing trainer ID
-                                                    trainer_id_state = ui.state(default_trainer_id)
+                                                    trainer_id_state = {'value': default_trainer_id}
                                                     
                                                     # Only show trainer selection if preference is set
                                                     trainer_select_container = ui.element('div').classes('w-full')
@@ -264,8 +285,8 @@ async def display_training_preferences(): # Made async
                                                                     (t for t in trainer_options if t["label"] == selected_label),
                                                                     trainer_options[0]
                                                                 )
-                                                                trainer_id_state.value = selected_trainer["value"]
-                                                                update_preference(day, start_time, end_time, pref_select.value, trainer_id_state.value, existing)
+                                                                trainer_id_state['value'] = selected_trainer["value"]
+                                                                update_preference(day, start_time, end_time, pref_select.value, trainer_id_state['value'], existing)
                                                             
                                                             trainer_select.on('update:model-value', on_trainer_change)
                                                     
@@ -292,17 +313,41 @@ async def display_training_preferences(): # Made async
                                                                     (t for t in trainer_options if t["label"] == selected_label),
                                                                     trainer_options[0]
                                                                 )
-                                                                trainer_id_state.value = selected_trainer["value"]
-                                                                update_preference(day, start_time, end_time, preference, trainer_id_state.value, existing)
+                                                                trainer_id_state['value'] = selected_trainer["value"]
+                                                                update_preference(day, start_time, end_time, preference, trainer_id_state['value'], existing)
                                                             
                                                             trainer_select.on('update:model-value', on_new_trainer_change)
                                                     
-                                                    update_preference(day, start_time, end_time, preference, trainer_id_state.value, existing)
+                                                    update_preference(day, start_time, end_time, preference, trainer_id_state['value'], existing)
                                                 
                                                 pref_select.on('update:model-value', on_pref_change)
                 else:
+                    # API call failed or returned an error
                     with preference_container:
-                        ui.label("Failed to load preferences. Please try again.").classes('text-negative')
+                        if response and response.get("detail"):
+                            ui.label(f"API Error: {response.get('detail')}").classes('text-negative')
+                        else:
+                            ui.label("Failed to load preferences from server.").classes('text-negative')
+                        
+                        # Show basic information even when API fails
+                        today = datetime.date.today()
+                        is_thursday = today.weekday() == 3
+                        
+                        # Calculate next week's start date (Sunday)
+                        days_until_sunday = (6 - today.weekday()) % 7
+                        if days_until_sunday == 0:  # If today is Sunday
+                            days_until_sunday = 7  # Get next Sunday
+                        next_week_start = today + datetime.timedelta(days=days_until_sunday)
+                        week_end_date = next_week_start + datetime.timedelta(days=4)
+                        
+                        ui.label(f"Training Week: {next_week_start.strftime('%Y-%m-%d')} to {week_end_date.strftime('%Y-%m-%d')}").classes('text-h5')
+                        
+                        if is_thursday:
+                            ui.label('Today you can set your training preferences for next week!').classes('text-positive')
+                        else:
+                            ui.label('You can only set preferences on Thursdays. Today you can only view your existing preferences.').classes('text-warning')
+                        
+                        ui.label("Please check your login status and try refreshing the page.").classes('text-info')
             
             except Exception as e:
                 with preference_container:
@@ -450,7 +495,7 @@ async def display_training_preferences(): # Made async
         
         # Add refresh button
         with ui.row().classes('q-mt-md'):
-            ui.button('Refresh', on_click=load_preferences).props('color=primary')
+            ui.button('Refresh', on_click=lambda: load_preferences.refresh()).props('color=primary')
         
         # Initial load
         await load_preferences()

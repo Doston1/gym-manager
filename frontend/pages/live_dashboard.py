@@ -1,10 +1,10 @@
-from nicegui import ui, app # Added app import
+from nicegui import ui, app
 import requests
 import datetime
 import json
 import asyncio
-from ..config import API_HOST, API_PORT 
-import httpx # Added httpx import
+import httpx
+from ..config import API_HOST, API_PORT
 
 # --- Copied Helper Functions ---
 async def get_current_user():
@@ -119,21 +119,21 @@ async def display_live_dashboard(): # Made async
         '''
         
         # Auto-refresh controls
-        auto_refresh_state = ui.state(True)  # Default: enabled
-        refresh_rate_state = ui.state(30)  # Default: 30 seconds
+        auto_refresh_enabled = True
+        refresh_rate_seconds = 30
         
         with ui.row().classes('w-full items-center justify-between'):
             ui.label('Auto-refresh settings').classes('text-h6')
             
             with ui.row():
-                ui.checkbox('Auto-refresh', value=True).bind_value(auto_refresh_state, 'value')
-                ui.number(
+                auto_refresh_checkbox = ui.checkbox('Auto-refresh', value=True)
+                refresh_rate_input = ui.number(
                     'Refresh rate (seconds)',
                     min=10,
                     max=60,
                     step=5,
                     value=30
-                ).bind_value(refresh_rate_state, 'value').props('size=8')
+                ).props('size=8')
         
         # Placeholder for countdown timer
         refresh_timer_display = ui.label('')
@@ -206,30 +206,15 @@ async def display_live_dashboard(): # Made async
                     ui.label("No active training sessions at the moment.").classes('text-info')
                 else:
                     # Create a simple table for all active sessions
-                    with ui.table().classes('w-full').style('max-height: 300px'):
-                        ui.table_head(
-                            ui.table_header(
-                                ui.table_cell('Session ID'),
-                                ui.table_cell('Hall'),
-                                ui.table_cell('Trainer'),
-                                ui.table_cell('Start Time'),
-                                ui.table_cell('Status')
-                            )
-                        )
-                        with ui.table_body():
-                            for session in sessions:
-                                ui.table_row(
-                                    ui.table_cell(session.get('live_session_id', 'N/A')),
-                                    ui.table_cell(session.get('hall_name', 'N/A')),
-                                    ui.table_cell(session.get('trainer_name', 'N/A')),
-                                    ui.table_cell(session.get('start_time', 'N/A')),
-                                    ui.table_cell(session.get('status', 'N/A')).classes(
-                                        'text-positive' if session.get('status') == 'Completed' else
-                                        'text-negative' if session.get('status') == 'Cancelled' else
-                                        'text-primary' if session.get('status') == 'In Progress' else
-                                        'text-secondary'
-                                    )
-                                )
+                    columns = [
+                        {'name': 'session_id', 'label': 'Session ID', 'field': 'live_session_id'},
+                        {'name': 'hall_name', 'label': 'Hall', 'field': 'hall_name'},
+                        {'name': 'trainer_name', 'label': 'Trainer', 'field': 'trainer_name'},
+                        {'name': 'start_time', 'label': 'Start Time', 'field': 'start_time'},
+                        {'name': 'status', 'label': 'Status', 'field': 'status'}
+                    ]
+                    
+                    ui.table(columns=columns, rows=sessions).classes('w-full')
                     
                     # Show detailed info for each session in cards
                     ui.label("Session Details").classes('text-h6 q-mt-md')
@@ -301,23 +286,20 @@ async def display_live_dashboard(): # Made async
                                     ui.label("No members assigned to this session.").classes('text-info')
                                 else:
                                     # Create a table for members
-                                    with ui.table().style('max-height: 200px'):
-                                        ui.table_head(
-                                            ui.table_header(
-                                                ui.table_cell('Name'),
-                                                ui.table_cell('Status')
-                                            )
-                                        )
-                                        with ui.table_body():
-                                            for member in members:
-                                                ui.table_row(
-                                                    ui.table_cell(f"{member.get('first_name', '')} {member.get('last_name', '')}"),
-                                                    ui.table_cell(member.get('attendance_status', 'N/A')).classes(
-                                                        'text-positive' if member.get('attendance_status') == 'Attended' else
-                                                        'text-negative' if member.get('attendance_status') == 'No Show' else
-                                                        'text-secondary'
-                                                    )
-                                                )
+                                    member_columns = [
+                                        {'name': 'name', 'label': 'Name', 'field': 'name'},
+                                        {'name': 'status', 'label': 'Status', 'field': 'attendance_status'}
+                                    ]
+                                    
+                                    # Format member data for the table
+                                    member_rows = []
+                                    for member in members:
+                                        member_rows.append({
+                                            'name': f"{member.get('first_name', '')} {member.get('last_name', '')}",
+                                            'attendance_status': member.get('attendance_status', 'N/A')
+                                        })
+                                    
+                                    ui.table(columns=member_columns, rows=member_rows).classes('w-full')
                             
                             except Exception as e:
                                 ui.label(f"Failed to load members: {str(e)}").classes('text-negative')
