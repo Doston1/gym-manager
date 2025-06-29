@@ -43,7 +43,7 @@ async def training_page():
     if user:
         # Fetch full user details from the backend
         user = await user_full_details(user)
-    print("DEBUG: training_page.py User:", user)
+    # print("DEBUG: training_page.py User:", user)
     is_manager = user and user.get("user_type") == "manager"
     is_trainer = user and user.get("user_type") == "trainer"
     is_member = user and user.get("user_type") == "member"

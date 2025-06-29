@@ -2,12 +2,16 @@ from fastapi import APIRouter, Depends, HTTPException, status, Request
 from backend.database.base import get_db_cursor, get_db_connection
 from backend.database.crud import training_execution as crud_exec
 from backend.database.crud import scheduling as crud_scheduling # For live session interaction
+from backend.auth import get_current_user_data  # Import the auth function
 from mysql.connector import Error as MySQLError
 from typing import List, Optional, Dict, Any
 
 from backend.database.db_utils import get_sql # For type hinting complex payloads
 
 router = APIRouter(prefix="/training-execution", tags=["Training Execution & Logging"])
+
+# Additional router for /training paths (to match frontend expectations)
+training_router = APIRouter(prefix="/training", tags=["Training API"])
 
 # === MemberActivePlan Routes ===
 @router.post("/member-active-plans", status_code=status.HTTP_201_CREATED)
@@ -268,3 +272,132 @@ def get_member_logged_workouts_route(member_id: int, db_conn_cursor = Depends(ge
 # Typically, logs are immutable or have specific amendment processes.
 # For simplicity, I'll omit PUT/DELETE for logged_workouts and logged_workout_exercises for now.
 # If needed, they would follow similar patterns.
+
+@router.get("/live-sessions/current")
+def get_current_user_active_session_route(current_user: dict = Depends(get_current_user_data), db_conn_cursor = Depends(get_db_cursor)):
+    """Get the current user's active live session"""
+    db_conn, cursor = db_conn_cursor
+    
+    try:
+        user_type = current_user.get("user_type")
+        user_id = current_user.get("user_id")
+        
+        # Check for active live sessions based on user type
+        if user_type == "member":
+            member_id = current_user.get("member_id_pk")
+            if not member_id:
+                return {"active_session": None, "message": "Member ID not found"}
+                
+            # Query for active live sessions where this member is participating
+            cursor.execute("""
+                SELECT ls.*, ws.hall_id, h.name as hall_name, 
+                       CONCAT(u.first_name, ' ', u.last_name) as trainer_name
+                FROM live_sessions ls
+                JOIN weekly_schedules ws ON ls.schedule_id = ws.schedule_id
+                JOIN halls h ON ws.hall_id = h.hall_id
+                JOIN trainers t ON ws.trainer_id = t.trainer_id
+                JOIN users u ON t.user_id = u.user_id
+                JOIN schedule_members sm ON ws.schedule_id = sm.schedule_id
+                WHERE sm.member_id = %s 
+                AND ls.status IN ('Active', 'In Progress')
+                ORDER BY ls.start_time DESC
+                LIMIT 1
+            """, (member_id,))
+            
+        elif user_type == "trainer":
+            trainer_id = current_user.get("trainer_id_pk")
+            if not trainer_id:
+                return {"active_session": None, "message": "Trainer ID not found"}
+                
+            # Query for active live sessions where this trainer is conducting
+            cursor.execute("""
+                SELECT ls.*, ws.hall_id, h.name as hall_name,
+                       CONCAT(u.first_name, ' ', u.last_name) as trainer_name
+                FROM live_sessions ls
+                JOIN weekly_schedules ws ON ls.schedule_id = ws.schedule_id
+                JOIN halls h ON ws.hall_id = h.hall_id
+                JOIN trainers t ON ws.trainer_id = t.trainer_id
+                JOIN users u ON t.user_id = u.user_id
+                WHERE ws.trainer_id = %s 
+                AND ls.status IN ('Active', 'In Progress')
+                ORDER BY ls.start_time DESC
+                LIMIT 1
+            """, (trainer_id,))
+            
+        else:
+            # Manager or other user types don't have "active sessions" in the same way
+            return {"active_session": None, "message": "User type does not have active sessions"}
+            
+        active_session = cursor.fetchone()
+        
+        if active_session:
+            return {"active_session": active_session, "message": "Active session found"}
+        else:
+            return {"active_session": None, "message": "No active session found"}
+        
+    except Exception as e:
+        print(f"Error checking active session: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error checking active session: {str(e)}")
+
+# === Training API Routes ===
+@training_router.get("/live/sessions/current")
+def get_current_user_active_training_session(request: Request, current_user: dict = Depends(get_current_user_data), db_conn_cursor = Depends(get_db_cursor)):
+    """Get the current user's active live session (matches frontend expectation)"""
+    db_conn, cursor = db_conn_cursor
+    
+    try:
+        user_type = current_user.get("user_type")
+        user_id = current_user.get("user_id")
+        
+        # Check for active live sessions based on user type
+        if user_type == "member":
+            member_id = current_user.get("member_id_pk")
+            if not member_id:
+                return None
+                
+            # Query for active live sessions where this member is participating
+            cursor.execute("""
+                SELECT ls.*, ws.hall_id, h.name as hall_name, 
+                       CONCAT(u.first_name, ' ', u.last_name) as trainer_name
+                FROM live_sessions ls
+                JOIN weekly_schedules ws ON ls.schedule_id = ws.schedule_id
+                JOIN halls h ON ws.hall_id = h.hall_id
+                JOIN trainers t ON ws.trainer_id = t.trainer_id
+                JOIN users u ON t.user_id = u.user_id
+                JOIN schedule_members sm ON ws.schedule_id = sm.schedule_id
+                WHERE sm.member_id = %s 
+                AND ls.status IN ('Active', 'In Progress')
+                ORDER BY ls.start_time DESC
+                LIMIT 1
+            """, (member_id,))
+            
+        elif user_type == "trainer":
+            trainer_id = current_user.get("trainer_id_pk")
+            if not trainer_id:
+                return None
+                
+            # Query for active live sessions where this trainer is conducting
+            cursor.execute("""
+                SELECT ls.*, ws.hall_id, h.name as hall_name,
+                       CONCAT(u.first_name, ' ', u.last_name) as trainer_name
+                FROM live_sessions ls
+                JOIN weekly_schedules ws ON ls.schedule_id = ws.schedule_id
+                JOIN halls h ON ws.hall_id = h.hall_id
+                JOIN trainers t ON ws.trainer_id = t.trainer_id
+                JOIN users u ON t.user_id = u.user_id
+                WHERE ws.trainer_id = %s 
+                AND ls.status IN ('Active', 'In Progress')
+                ORDER BY ls.start_time DESC
+                LIMIT 1
+            """, (trainer_id,))
+            
+        else:
+            # Manager or other user types don't have "active sessions" in the same way
+            return None
+            
+        active_session = cursor.fetchone()
+        return active_session  # Will be None if no active session found
+        
+    except Exception as e:
+        print(f"Error checking active session: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error checking active session: {str(e)}")

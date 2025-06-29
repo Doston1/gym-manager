@@ -43,7 +43,9 @@ api.include_router(custom_requests.router)
 api.include_router(facilities.router)
 api.include_router(finance.router)
 api.include_router(training_blueprints.router)
+api.include_router(training_blueprints.training_plans_router)  # Additional router for /training-plans paths
 api.include_router(training_execution.router)
+api.include_router(training_execution.training_router)  # Additional router for /training paths
 api.include_router(scheduling.router)
 api.include_router(notifications.router)
 

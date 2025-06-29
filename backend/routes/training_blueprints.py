@@ -1,9 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from backend.database.base import get_db_cursor, get_db_connection
 from backend.database.crud import training_blueprints as crud_bp # Renamed for clarity
+from backend.auth import get_current_user_data  # Import the auth function
 from mysql.connector import Error as MySQLError
 
 router = APIRouter(prefix="/training-blueprints", tags=["Training Blueprints"])
+
+# Additional router for /training-plans paths (to match frontend expectations)
+training_plans_router = APIRouter(prefix="/training-plans", tags=["Training Plans API"])
 
 # === Exercise Routes ===
 @router.post("/exercises", status_code=status.HTTP_201_CREATED)
@@ -298,3 +302,64 @@ def remove_exercise_from_day_route(tde_id: int, db_conn = Depends(get_db_connect
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Unexpected error: {str(e)}")
     finally:
         if cursor: cursor.close()
+
+# Route for frontend compatibility - maps /training-plans to the same functionality as /training-blueprints/plans
+@training_plans_router.get("/")
+def get_all_training_plans_frontend_route(is_active: bool = None, trainer_id: int = None, db_conn_cursor = Depends(get_db_cursor)):
+    """Get all training plans - frontend compatible route"""
+    db_conn, cursor = db_conn_cursor
+    return crud_bp.get_all_training_plans(db_conn, cursor, is_active, trainer_id)
+
+@training_plans_router.get("/preferences/check")
+def check_training_preferences(current_user: dict = Depends(get_current_user_data), db_conn_cursor = Depends(get_db_cursor)):
+    """Check if training preferences can be set today and return current week info"""
+    import datetime
+    
+    db_conn, cursor = db_conn_cursor
+    
+    try:
+        # Only members can set training preferences
+        if current_user.get("user_type") != "member":
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only members can set training preferences")
+        
+        member_id = current_user.get("member_id_pk")
+        if not member_id:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Member ID not found")
+        
+        # Check if today is Thursday (preferences day)
+        today = datetime.date.today()
+        is_thursday = today.weekday() == 3  # Thursday is weekday 3
+        
+        # Calculate next week's start date (Sunday)
+        days_until_sunday = (6 - today.weekday()) % 7
+        if days_until_sunday == 0:  # If today is Sunday
+            days_until_sunday = 7  # Get next Sunday
+        
+        next_week_start = today + datetime.timedelta(days=days_until_sunday)
+        
+        # Fetch existing preferences for the next week
+        cursor.execute("""
+            SELECT tp.*, CONCAT(u.first_name, ' ', u.last_name) as trainer_name
+            FROM training_preferences tp
+            LEFT JOIN trainers t ON tp.trainer_id = t.trainer_id
+            LEFT JOIN users u ON t.user_id = u.user_id
+            WHERE tp.member_id = %s 
+            AND tp.week_start_date = %s
+            ORDER BY tp.day_of_week, tp.start_time
+        """, (member_id, next_week_start))
+        
+        existing_preferences = cursor.fetchall() or []
+        
+        return {
+            "can_set_preferences": is_thursday,
+            "week_start_date": next_week_start.isoformat(),
+            "current_date": today.isoformat(),
+            "is_thursday": is_thursday,
+            "preferences": existing_preferences
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error checking preferences: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error checking preferences: {str(e)}")
