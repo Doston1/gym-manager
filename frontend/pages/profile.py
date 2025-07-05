@@ -26,7 +26,7 @@ async def profile_page():
     else:
         # Get from backend the full user object
         async with httpx.AsyncClient() as client:
-            response = await client.get(f'http://{API_HOST}:{API_PORT}/users/{user["user_id"]}')
+            response = await client.get(f'http://{API_HOST}:{API_PORT}/users/{user["auth_id"]}')
             if response.status_code == 200:
                 user = response.json()
             else:
@@ -47,14 +47,14 @@ async def profile_page():
 
                 # Profile image upload
                 ui.label('Profile Image').classes('text-lg')
-                ui.upload(on_upload=lambda file: upload_profile_image(file, user['user_id'])).props('accept=".jpg,.png"')
+                ui.upload(on_upload=lambda file: upload_profile_image(file, user['auth_id'])).props('accept=".jpg,.png"')
 
             # Save button
             ui.button('Save Changes', on_click=lambda: save_profile(user)).classes('bg-cyan-500 text-white rounded-full hover:bg-cyan-600 transition-colors')
 
-async def upload_profile_image(file, user_id):
+async def upload_profile_image(file, auth_id):
     async with httpx.AsyncClient() as client:
-        response = await client.post(f'http://{API_HOST}:{API_PORT}/users/{user_id}/upload-image', files={'file': file})
+        response = await client.post(f'http://{API_HOST}:{API_PORT}/users/{auth_id}/upload-image', files={'file': file})
         if response.status_code == 200:
             ui.notify('Profile image updated successfully!', type='success')
         else:
@@ -88,7 +88,7 @@ async def save_profile(user):
     print("DEBUG: User data being sent:", user_data) 
 
     async with httpx.AsyncClient() as client:
-        response = await client.put(f'http://{API_HOST}:{API_PORT}/users/{user["user_id"]}', json=user_data)
+        response = await client.put(f'http://{API_HOST}:{API_PORT}/users/{user["auth_id"]}', json=user_data)
         if response.status_code == 200:
             ui.notify('Profile updated successfully!', type='success')
         else:

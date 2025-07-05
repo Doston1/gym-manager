@@ -293,7 +293,7 @@ def get_current_user_active_session_route(current_user: dict = Depends(get_curre
                 SELECT ls.*, ws.hall_id, h.name as hall_name, 
                        CONCAT(u.first_name, ' ', u.last_name) as trainer_name
                 FROM live_sessions ls
-                JOIN weekly_schedules ws ON ls.schedule_id = ws.schedule_id
+                JOIN weekly_schedule ws ON ls.schedule_id = ws.schedule_id
                 JOIN halls h ON ws.hall_id = h.hall_id
                 JOIN trainers t ON ws.trainer_id = t.trainer_id
                 JOIN users u ON t.user_id = u.user_id
@@ -314,7 +314,7 @@ def get_current_user_active_session_route(current_user: dict = Depends(get_curre
                 SELECT ls.*, ws.hall_id, h.name as hall_name,
                        CONCAT(u.first_name, ' ', u.last_name) as trainer_name
                 FROM live_sessions ls
-                JOIN weekly_schedules ws ON ls.schedule_id = ws.schedule_id
+                JOIN weekly_schedule ws ON ls.schedule_id = ws.schedule_id
                 JOIN halls h ON ws.hall_id = h.hall_id
                 JOIN trainers t ON ws.trainer_id = t.trainer_id
                 JOIN users u ON t.user_id = u.user_id
@@ -360,7 +360,7 @@ def get_current_user_active_training_session(request: Request, current_user: dic
                 SELECT ls.*, ws.hall_id, h.name as hall_name, 
                        CONCAT(u.first_name, ' ', u.last_name) as trainer_name
                 FROM live_sessions ls
-                JOIN weekly_schedules ws ON ls.schedule_id = ws.schedule_id
+                JOIN weekly_schedule ws ON ls.schedule_id = ws.schedule_id
                 JOIN halls h ON ws.hall_id = h.hall_id
                 JOIN trainers t ON ws.trainer_id = t.trainer_id
                 JOIN users u ON t.user_id = u.user_id
@@ -381,7 +381,7 @@ def get_current_user_active_training_session(request: Request, current_user: dic
                 SELECT ls.*, ws.hall_id, h.name as hall_name,
                        CONCAT(u.first_name, ' ', u.last_name) as trainer_name
                 FROM live_sessions ls
-                JOIN weekly_schedules ws ON ls.schedule_id = ws.schedule_id
+                JOIN weekly_schedule ws ON ls.schedule_id = ws.schedule_id
                 JOIN halls h ON ws.hall_id = h.hall_id
                 JOIN trainers t ON ws.trainer_id = t.trainer_id
                 JOIN users u ON t.user_id = u.user_id

@@ -95,7 +95,7 @@ def delete_training_preference(db_conn, cursor, preference_id: int):
 
 # --- WeeklySchedule Operations ---
 def _check_schedule_overlap(cursor, schedule_data: dict, schedule_id_to_exclude: int = None):
-    sql = get_sql("weekly_schedules_check_overlap")
+    sql = get_sql("weekly_schedule_check_overlap")
     params = {
         "day_of_week": schedule_data["day_of_week"],
         "week_start_date": schedule_data["week_start_date"],
@@ -112,7 +112,7 @@ def _check_schedule_overlap(cursor, schedule_data: dict, schedule_id_to_exclude:
 
 
 def get_weekly_schedule_by_id(db_conn, cursor, schedule_id: int):
-    sql = get_sql("weekly_schedules_get_by_id") # Base get without joins for simple fetch
+    sql = get_sql("weekly_schedule_get_by_id") # Base get without joins for simple fetch
     try:
         cursor.execute(sql, (schedule_id,))
         schedule = format_records(cursor.fetchone())
@@ -122,15 +122,15 @@ def get_weekly_schedule_by_id(db_conn, cursor, schedule_id: int):
     except MySQLError as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"DB error: {str(e)}")
 
-def get_weekly_schedules_by_week(db_conn, cursor, week_start_date: str, trainer_id: int = None, hall_id: int = None):
+def get_weekly_schedule_by_week(db_conn, cursor, week_start_date: str, trainer_id: int = None, hall_id: int = None):
     if trainer_id:
-        sql = get_sql("weekly_schedules_get_by_trainer_and_week")
+        sql = get_sql("weekly_schedule_get_by_trainer_and_week")
         params = {"trainer_id": trainer_id, "week_start_date": week_start_date}
     elif hall_id:
-        sql = get_sql("weekly_schedules_get_by_hall_and_week")
+        sql = get_sql("weekly_schedule_get_by_hall_and_week")
         params = {"hall_id": hall_id, "week_start_date": week_start_date}
     else:
-        sql = get_sql("weekly_schedules_get_by_week")
+        sql = get_sql("weekly_schedule_get_by_week")
         params = (week_start_date,)
     try:
         cursor.execute(sql, params)
@@ -154,7 +154,7 @@ def create_weekly_schedule(db_conn, cursor, schedule_data: dict):
 
     _check_schedule_overlap(cursor, validated_data) # Check for overlaps before creating
 
-    sql = get_sql("weekly_schedules_create")
+    sql = get_sql("weekly_schedule_create")
     try:
         cursor.execute(sql, validated_data)
         schedule_id = cursor.lastrowid
@@ -188,7 +188,7 @@ def update_weekly_schedule(db_conn, cursor, schedule_id: int, schedule_data: dic
     _check_schedule_overlap(cursor, overlap_check_data, schedule_id_to_exclude=schedule_id)
 
     set_clauses = ", ".join([f"{key} = %({key})s" for key in validated_data])
-    sql_template = get_sql("weekly_schedules_update_by_id")
+    sql_template = get_sql("weekly_schedule_update_by_id")
     formatted_sql = sql_template.replace("{set_clauses}", set_clauses)
     update_params = {**validated_data, "schedule_id": schedule_id}
 
@@ -203,7 +203,7 @@ def update_weekly_schedule(db_conn, cursor, schedule_id: int, schedule_data: dic
 def delete_weekly_schedule(db_conn, cursor, schedule_id: int):
     get_weekly_schedule_by_id(db_conn, cursor, schedule_id) # Existence check
     # ON DELETE CASCADE should handle schedule_members, live_sessions, live_session_attendance
-    sql = get_sql("weekly_schedules_delete_by_id")
+    sql = get_sql("weekly_schedule_delete_by_id")
     try:
         cursor.execute(sql, (schedule_id,))
         if cursor.rowcount == 0:

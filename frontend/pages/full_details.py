@@ -50,7 +50,7 @@ async def full_details():
             async with httpx.AsyncClient() as client:
                 # Send combined update request
                 response = await client.put(
-                    f"http://{API_HOST}:{API_PORT}/users/{current_user['user_id']}",
+                    f"http://{API_HOST}:{API_PORT}/users/{current_user['auth_id']}",
                     json=combined_data,
                     headers=headers
                 )
