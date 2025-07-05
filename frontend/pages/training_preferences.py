@@ -128,7 +128,7 @@ async def display_training_preferences(): # Made async
             # Check if we can set preferences today
             with preference_container:
                 ui.spinner(size='lg').classes('self-center')
-                ui.label('Loading preferences...').classes('self-center')
+                ui.label('Loading preferences...').classes('self-center text-white')
                 
             headers = {"Authorization": f"Bearer {token}"}
             
@@ -163,7 +163,7 @@ async def display_training_preferences(): # Made async
                     week_end_date = week_end_date_obj.strftime("%Y-%m-%d")
                     
                     with preference_container:
-                        ui.label(f"Training Week: {week_start_date} to {week_end_date}").classes('text-h5')
+                        ui.label(f"Training Week: {week_start_date} to {week_end_date}").classes('text-h5 text-white')
                         
                         if can_set_preferences:
                             ui.label('Today you can set your training preferences for next week!').classes('text-positive')
@@ -219,7 +219,7 @@ async def display_training_preferences(): # Made async
                         with ui.tab_panels(tabs, value=days[0]).classes('w-full'):
                             for day in days:
                                 with ui.tab_panel(day):
-                                    ui.label(f"{day} Preferences").classes('text-h6')
+                                    ui.label(f"{day} Preferences").classes('text-h6 text-black')
                                     
                                     for time_slot in time_slots:
                                         start_time, end_time = time_slot.split('-')
@@ -229,7 +229,7 @@ async def display_training_preferences(): # Made async
                                         
                                         with ui.card().classes('w-full q-my-sm'):
                                             with ui.row().classes('w-full items-center'):
-                                                ui.label(time_slot).classes('text-bold text-lg')
+                                                ui.label(time_slot).classes('text-bold text-lg text-black')
                                                 
                                                 with ui.column().classes('w-2/3'):
                                                     # Default values based on existing preferences
@@ -255,7 +255,8 @@ async def display_training_preferences(): # Made async
                                                         label="Preference:",
                                                         value=default_pref
                                                     ).props('outlined').classes('w-full')
-                                                    pref_select.disable(not can_set_preferences)
+                                                    if not can_set_preferences:
+                                                        pref_select.disable()
                                                     
                                                     # For storing trainer ID
                                                     trainer_id_state = {'value': default_trainer_id}
@@ -276,7 +277,8 @@ async def display_training_preferences(): # Made async
                                                                 label="Preferred Trainer:",
                                                                 value=default_trainer_option["label"]
                                                             ).props('outlined').classes('w-full')
-                                                            trainer_select.disable(not can_set_preferences)
+                                                            if not can_set_preferences:
+                                                                trainer_select.disable()
                                                             
                                                             # Handle trainer selection change
                                                             def on_trainer_change(e):
@@ -304,7 +306,8 @@ async def display_training_preferences(): # Made async
                                                                 label="Preferred Trainer:",
                                                                 value=trainer_options[0]["label"]
                                                             ).props('outlined').classes('w-full')
-                                                            trainer_select.disable(not can_set_preferences)
+                                                            if not can_set_preferences:
+                                                                trainer_select.disable()
                                                             
                                                             # Handle trainer selection change
                                                             def on_new_trainer_change(e):
@@ -340,7 +343,7 @@ async def display_training_preferences(): # Made async
                         next_week_start = today + datetime.timedelta(days=days_until_sunday)
                         week_end_date = next_week_start + datetime.timedelta(days=4)
                         
-                        ui.label(f"Training Week: {next_week_start.strftime('%Y-%m-%d')} to {week_end_date.strftime('%Y-%m-%d')}").classes('text-h5')
+                        ui.label(f"Training Week: {next_week_start.strftime('%Y-%m-%d')} to {week_end_date.strftime('%Y-%m-%d')}").classes('text-h5 text-white')
                         
                         if is_thursday:
                             ui.label('Today you can set your training preferences for next week!').classes('text-positive')
