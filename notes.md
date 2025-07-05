@@ -6,5 +6,6 @@
   - add the account button with the droplist to the navbar in every page
 
 - User profile:
-  - - fix profile image update issue
+
+  - fix profile image update issue
   - Let the user change all the details, including weight, height and the rest

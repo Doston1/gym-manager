@@ -2,19 +2,7 @@ from nicegui import ui
 import requests
 import httpx
 from frontend.config import API_HOST, API_PORT  # Import environment variables
-
-async def get_current_user():
-    try:
-        token = await ui.run_javascript("localStorage.getItem('token')", timeout=5.0)
-        if token:
-            headers = {"Authorization": f"Bearer {token}"}
-            async with httpx.AsyncClient() as client:
-                response = await client.get(f"http://{API_HOST}:{API_PORT}/me", headers=headers)
-                if response.status_code == 200:
-                    return response.json()
-    except Exception as e:
-        print(f"Error fetching current user: {e}")
-    return None
+from frontend.components.navbar import create_navbar, apply_page_style, get_current_user
 
 async def user_full_details(user):
     # Fetch full user details from the backend
@@ -27,19 +15,11 @@ async def user_full_details(user):
             return None
 
 async def training_page():
-    # Apply a dark blue background across the page
-    ui.query('body').style('background: linear-gradient(to bottom, #001f3f, #001a33); color: white; font-family: "Orbitron", sans-serif;')
+    # Apply consistent page styling
+    apply_page_style()
 
-    # Navbar
-    with ui.header().classes('bg-transparent text-white p-4 flex justify-between items-center shadow-lg backdrop-blur-md'):
-        ui.label('Gym Manager').classes('text-2xl font-bold cursor-pointer hover:scale-105 transition-transform').on('click', lambda: ui.navigate.to('/'))
-        with ui.row().classes('gap-4'):
-            ui.button('Home', on_click=lambda: ui.navigate.to('/')).classes('text-white hover:text-blue-300')
-            ui.button('Working Hours', on_click=lambda: ui.navigate.to('/work-hours')).classes('text-white hover:text-blue-300')
-            ui.button('Classes', on_click=lambda: ui.navigate.to('/classes')).classes('text-white hover:text-blue-300')
-            ui.button('Training Plans', on_click=lambda: ui.navigate.to('/training-plans')).classes('text-white hover:text-blue-300')
-
-    user = await get_current_user()
+    # Create navbar and get user
+    user = await create_navbar()
     if user:
         # Fetch full user details from the backend
         user = await user_full_details(user)
