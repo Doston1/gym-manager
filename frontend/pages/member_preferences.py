@@ -3,7 +3,8 @@ from nicegui import ui, app
 from datetime import time, date, timedelta, datetime
 import httpx # For API calls
 import json
-from ..config import API_HOST, API_PORT # Assuming your config file
+from ..config import API_HOST, API_PORT
+from frontend.components.navbar import create_navbar, apply_page_style, get_current_user
 
 # --- Helper to get token (consistent with your weekly_schedule.py) ---
 async def get_token_from_storage():
@@ -32,22 +33,19 @@ def get_next_week_sunday_iso():
 
 @ui.page('/member/set-preferences')
 async def member_set_preferences_page():
-    ui.query('body').style('background: linear-gradient(to bottom, #001f3f, #001a33); color: white; font-family: "Orbitron", sans-serif;')
-    ui.query('.nicegui-content').classes('items-center')
+    # Apply consistent page styling
+    apply_page_style()
 
-    # --- Navbar (similar to your weekly_schedule.py) ---
-    # For brevity, I'll skip pasting the full navbar here, but you should include it
-    # It should include the get_current_user() and logout() logic
-    user_info_str = await ui.run_javascript("localStorage.getItem('user_info')")
-    current_user = json.loads(user_info_str) if user_info_str else None
-
-    if not current_user or current_user.get("user_type") != "member":
+    # Create navbar and get user
+    user = await create_navbar()
+    
+    if not user or user.get("user_type") != "member":
         with ui.card().classes('w-full max-w-md p-6 bg-opacity-80 bg-gray-900 rounded-lg shadow-lg mt-20'):
             ui.label("Access Denied. This page is for members only.").classes('text-center text-red-400')
             ui.button("Go Home", on_click=lambda: ui.navigate.to('/')).classes('w-full mt-4')
         return
     
-    member_id = current_user.get("member_id_pk") # Assuming your /me endpoint returns this
+    member_id = user.get("member_id_pk") # Assuming your /me endpoint returns this
     if not member_id:
         ui.notify("Error: Member ID not found in your session.", type='negative')
         return

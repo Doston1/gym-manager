@@ -2,23 +2,11 @@ from nicegui import ui, app
 import httpx
 from datetime import datetime
 from frontend.config import API_HOST, API_PORT
+from frontend.components.navbar import create_navbar, apply_page_style, get_current_user
 
 async def full_details():
-    # Apply same styling as home page
-    ui.query('body').style('background: linear-gradient(to bottom, #001f3f, #001a33); color: white; font-family: "Orbitron", sans-serif;')
-    
-    async def get_current_user():
-        try:
-            token = await ui.run_javascript("localStorage.getItem('token')", timeout=5.0)  # increased timeout
-            if token:
-                headers = {"Authorization": f"Bearer {token}"}
-                async with httpx.AsyncClient() as client:
-                    response = await client.get(f"http://{API_HOST}:{API_PORT}/me", headers=headers)
-                if response.status_code == 200:
-                    return response.json()
-        except Exception as e:
-            print(f"Error: {e}")
-        return None
+    # Apply consistent page styling
+    apply_page_style()
 
     async def save_details():
         try:
