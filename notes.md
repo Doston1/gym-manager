@@ -1,19 +1,10 @@
 ### Todo:
 
-- User:
-
-  - Edit the full_details page so the options of gender, fitness goal and fitness level will not be white on white.
-  - Add training plan for themselves option.
-
-- Admin:
-
-  - Add add_trainers page
-  - Add add_managers page
-
-- Data:
-
-  - add mock data for trainers, classes, training plans, users
-
 - General:
-  - Redesign Home Page
-  - Add about the gym page with images.
+
+  - Add about the gym page with images instead of working hours page. Move the working hours data to the About page
+  - add the account button with the droplist to the navbar in every page
+
+- User profile:
+  - - fix profile image update issue
+  - Let the user change all the details, including weight, height and the rest

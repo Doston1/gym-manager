@@ -281,6 +281,17 @@ def update_trainer_details_by_trainer_id_pk(db_conn, cursor, trainer_id_pk: int,
     except MySQLError as e: # Use MySQLError
         raise HTTPException(status_code=500, detail=f"Database error updating trainer: {e}")
 
+def get_all_trainers(db_conn, cursor, active_only: bool = True):
+    """Get all trainers with their user details"""
+    if active_only:
+        sql = get_sql("trainers_get_all_active")
+    else:
+        # For now, we'll use the same query since we typically only want active trainers
+        sql = get_sql("trainers_get_all_active")
+    
+    cursor.execute(sql)
+    trainers = cursor.fetchall()
+    return format_records(trainers)
 
 # --- Manager Operations ---
 def get_manager_by_user_id_pk(db_conn, cursor, user_id_pk: int):
