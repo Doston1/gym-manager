@@ -4,7 +4,8 @@ import httpx
 import datetime
 import json
 import asyncio
-from ..config import API_HOST, API_PORT # Assuming your config file
+from ..config import API_HOST, API_PORT
+from frontend.components.navbar import create_navbar_with_conditional_buttons, apply_page_style, get_current_user
 
 # --- Helper Functions (from your existing code, slightly adapted) ---
 async def get_token_from_storage():
@@ -18,13 +19,6 @@ def is_it_preference_setting_day_local(): # Renamed to avoid conflict if you hav
     """Checks if today (client's local interpretation) is Thursday."""
     return datetime.date.today().weekday() == 3 # Monday is 0, Thursday is 3
 
-def logout_action(): # Renamed to avoid conflict with ui.button if named 'logout'
-    ui.run_javascript("localStorage.removeItem('token'); localStorage.removeItem('user_info'); localStorage.removeItem('active_live_session_id');", timeout=5.0)
-    # No need to navigate here if backend /logout redirects properly
-    # ui.navigate.to(f"http://{API_HOST}:{API_PORT}/logout") # Backend handles redirect to home
-    app.storage.user.clear() # Clear server-side session if you use it
-    ui.open(f"http://{API_HOST}:{API_PORT}/logout") # Open in new tab/window to ensure cookie clear for /logout
-
 async def user_has_active_live_session_js(): # Renamed for clarity
     """Checks if active_live_session_id is in localStorage."""
     session_id = await ui.run_javascript("localStorage.getItem('active_live_session_id')", timeout=5.0)
@@ -33,41 +27,46 @@ async def user_has_active_live_session_js(): # Renamed for clarity
 
 @ui.page('/weekly_schedule')
 async def weekly_schedule_page():
-    ui.query('body').style('background: linear-gradient(to bottom, #001f3f, #001a33); color: white; font-family: "Orbitron", sans-serif;')
+    # Apply consistent page styling
+    apply_page_style()
     ui.query('.nicegui-content').classes('items-center')
-
+    
     current_user = await get_user_info_from_storage()
 
-    # --- Navbar ---
-    with ui.header().classes('bg-transparent text-white p-4 flex justify-between items-center shadow-lg backdrop-blur-md'):
-        ui.label('Gym Manager').classes('text-2xl font-bold cursor-pointer hover:scale-105 transition-transform').on('click', lambda: ui.navigate.to('/'))
-        with ui.row().classes('gap-4 items-center'): # Added items-center
-            ui.button('Home', on_click=lambda: ui.navigate.to('/')).props('flat text-color=white')
-            # Add other common nav buttons here based on your original navbar
-            ui.button('Classes', on_click=lambda: ui.navigate.to('/classes')).props('flat text-color=white') # Example
-            ui.button('Weekly Schedule', on_click=lambda: ui.navigate.to('/weekly_schedule')).props('flat text-color=white')
+    # Define conditional buttons for the navbar
+    conditional_buttons = []
+    
+    # Add Set Preferences button if user is member and it's Thursday
+    if current_user and current_user.get("user_type") == "member" and is_it_preference_setting_day_local():
+        conditional_buttons.append({
+            'condition_func': lambda: True,  # Already checked the condition above
+            'label': 'Set Preferences',
+            'on_click': lambda: ui.navigate.to('/member/set-preferences'),
+            'classes': 'text-white hover:text-blue-300'
+        })
+    
+    # Add Live Dashboard button if user has active session
+    if await user_has_active_live_session_js():
+        conditional_buttons.append({
+            'condition_func': lambda: True,  # Already checked the condition above
+            'label': 'Live Dashboard',
+            'on_click': lambda: ui.navigate.to('/live-dashboard'),
+            'classes': 'text-white hover:text-blue-300'
+        })
 
-            if current_user and current_user.get("user_type") == "member" and is_it_preference_setting_day_local():
-                 ui.button('Set Preferences', on_click=lambda: ui.navigate.to('/member/set-preferences')).props('flat text-color=white')
-            
-            if await user_has_active_live_session_js(): # Check if user has an active session
-               ui.button('Live Dashboard', on_click=lambda: ui.navigate.to('/live-dashboard')).props('flat text-color=white')
+    # Additional standard buttons
+    additional_buttons = [
+        {
+            'label': 'Weekly Schedule',
+            'on_click': lambda: ui.navigate.to('/weekly_schedule'),
+            'classes': 'text-white hover:text-blue-300'
+        }
+    ]
 
+    # Create navbar with conditional buttons
+    user = await create_navbar_with_conditional_buttons(check_functions=conditional_buttons)
 
-            if current_user:
-                user_name = current_user.get("first_name", current_user.get("name", "Account")) # Prefer first_name
-                with ui.button(icon='person').props('flat round text-color=white'):
-                    with ui.menu().classes('bg-gray-800 text-white'):
-                        ui.label(f"Hi, {user_name}!").classes('p-2 text-center')
-                        ui.separator()
-                        ui.menu_item('My Profile', on_click=lambda: ui.navigate.to('/myprofile'))
-                        # Add other user-specific menu items
-                        ui.menu_item('Logout', on_click=logout_action)
-            else:
-                 ui.button('Login', on_click=lambda: ui.open(f'http://{API_HOST}:{API_PORT}/login')).props('flat text-color=white')
-    # --- End Navbar ---
-
-    with ui.card().classes('w-full max-w-6xl p-6 bg-opacity-80 bg-gray-900 rounded-lg shadow-xl mt-24 mb-8'):
+    with ui.card().classes('w-full max-w-6xl mx-auto p-6 bg-opacity-80 bg-gray-900 rounded-lg shadow-xl mt-24 mb-8'): # Added mx-auto for centering
         ui.label('Weekly Training Schedule').classes('text-3xl text-center mb-6 text-blue-300 font-bold')
 
         # State for the selected week's start date (ISO format string)

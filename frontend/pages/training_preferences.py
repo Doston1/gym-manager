@@ -5,31 +5,7 @@ import json
 import asyncio
 import httpx
 from ..config import API_HOST, API_PORT
-
-# --- Copied Helper Functions ---
-async def get_current_user():
-    try:
-        token = await ui.run_javascript(
-            "localStorage.getItem('token')",
-            timeout=5.0
-        )
-        if token:
-            headers = {"Authorization": f"Bearer {token}"}
-            async with httpx.AsyncClient() as client:
-                response = await client.get(f"http://{API_HOST}:{API_PORT}/me", headers=headers)
-            if response.status_code == 200:
-                # Store user info including type and ID if available
-                user_data = response.json()
-                await ui.run_javascript(f"localStorage.setItem('user_info', '{json.dumps(user_data)}');")
-                return user_data
-    except Exception as e:
-        print(f"Error getting current user: {e}")
-    return None
-
-def logout():
-    ui.run_javascript("localStorage.removeItem('token'); localStorage.removeItem('user_info'); location.reload();")
-    # Redirect to backend logout which handles Auth0 logout
-    ui.navigate.to(f"http://{API_HOST}:{API_PORT}/logout")
+from frontend.components.navbar import create_navbar_with_conditional_buttons, apply_page_style, get_current_user
 
 async def is_preference_day():
     # Simple check for Thursday (weekday 3)
@@ -54,53 +30,51 @@ async def user_has_active_session(user):
         print(f"Error checking active session: {e}")
         return False
 
-# --- End Copied Helper Functions ---
 
+async def user_has_active_session_for_navbar():
+    """Wrapper function for navbar condition checking"""
+    try:
+        user = await get_current_user()
+        return await user_has_active_session(user)
+    except Exception as e:
+        print(f"Error checking active session: {e}")
+        return False
 
-async def display_training_preferences(): # Made async
-    # Apply background style
-    ui.query('body').style('background: linear-gradient(to bottom, #001f3f, #001a33); color: white; font-family: "Orbitron", sans-serif;')
+async def display_training_preferences():
+    # Apply consistent page styling
+    apply_page_style()
     ui.query('.nicegui-content').classes('items-center')
+    
+    # Define conditional buttons
+    conditional_buttons = [
+        {
+            'condition_func': is_preference_day,
+            'label': 'Training Preferences',
+            'on_click': lambda: ui.navigate.to('/training-preferences'),
+            'classes': 'text-white hover:text-blue-300'
+        },
+        {
+            'condition_func': user_has_active_session_for_navbar,
+            'label': 'Live Dashboard',
+            'on_click': lambda: ui.navigate.to('/live-dashboard'),
+            'classes': 'text-white hover:text-blue-300'
+        }
+    ]
 
-    user = await get_current_user()
+    # Additional standard buttons
+    additional_buttons = [
+        {
+            'label': 'Weekly Schedule',
+            'on_click': lambda: ui.navigate.to('/weekly-schedule'),
+            'classes': 'text-white hover:text-blue-300'
+        }
+    ]
 
-    # --- Copied Navbar ---
-    with ui.header().classes('bg-transparent text-white p-4 flex justify-between items-center shadow-lg backdrop-blur-md'):
-        ui.label('Gym Manager').classes('text-2xl font-bold cursor-pointer hover:scale-105 transition-transform').on('click', lambda: ui.navigate.to('/'))
-        with ui.row().classes('gap-4'):
-            ui.button('Home', on_click=lambda: ui.navigate.to('/')).classes('text-white hover:text-blue-300')
-            ui.button('Working Hours', on_click=lambda: ui.navigate.to('/work-hours')).classes('text-white hover:text-blue-300')
-            ui.button('Classes', on_click=lambda: ui.navigate.to('/classes')).classes('text-white hover:text-blue-300')
-            ui.button('Training Plans', on_click=lambda: ui.navigate.to('/training-plans')).classes('text-white hover:text-blue-300')
-            ui.button('Weekly Schedule', on_click=lambda: ui.navigate.to('/weekly-schedule')).classes('text-white hover:text-blue-300') # Added Weekly Schedule
-
-            # Conditional Training Preferences Link
-            if await is_preference_day():
-                 ui.button('Training Preferences', on_click=lambda: ui.navigate.to('/training-preferences')).classes('text-white hover:text-blue-300')
-
-            # Conditional Live Dashboard Link
-            if await user_has_active_session(user):
-               ui.button('Live Dashboard', on_click=lambda: ui.navigate.to('/live-dashboard')).classes('text-white hover:text-blue-300')
-
-
-            if user:
-                with ui.column():
-                    user_button = ui.button(f'👤 {user.get("name", "Account")} ▾').classes('text-white')
-                    user_menu = ui.menu().props('auto-close').classes('bg-white text-black shadow-md rounded-md')
-
-                    with user_menu:
-                        ui.menu_item('My Profile', on_click=lambda: ui.navigate.to('/myprofile'))
-                        ui.menu_item('My Bookings', on_click=lambda: ui.navigate.to('/mybookings'))
-                        ui.menu_item('My Plans', on_click=lambda: ui.navigate.to('/mytrainingplans'))
-                        ui.menu_item('Logout', on_click=logout)
-                    user_button.on('click', user_menu.open)
-            else:
-                 # Optionally show login button if no user
-                 ui.button('Login/Register', on_click=lambda: ui.navigate.to(f'http://{API_HOST}:{API_PORT}/login')).classes('text-white hover:text-blue-300')
-    # --- End Copied Navbar ---
+    # Create navbar with conditional buttons
+    user = await create_navbar_with_conditional_buttons(check_functions=conditional_buttons)
 
     # Main content card
-    with ui.card().classes('w-full max-w-4xl p-6 bg-opacity-80 bg-gray-900 rounded-lg shadow-lg mt-20'): # Added margin-top
+    with ui.card().classes('w-full max-w-4xl mx-auto p-6 bg-opacity-80 bg-gray-900 rounded-lg shadow-lg mt-20'): # Added mx-auto for centering
         ui.label('Weekly Training Preferences').classes('text-h4 text-center mb-4 text-blue-300')
 
         # Container to hold preference form data
