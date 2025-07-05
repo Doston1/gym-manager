@@ -5,6 +5,20 @@ from mysql.connector import Error as MySQLError # Import the correct error type
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
+@router.get("/trainers")
+def get_all_trainers_endpoint(active_only: bool = True, db_conn_cursor_tuple = Depends(get_db_cursor)):
+    """Get all trainers with their user details"""
+    db_conn, cursor = db_conn_cursor_tuple
+    try:
+        trainers = crud_user.get_all_trainers(db_conn, cursor, active_only)
+        return trainers
+    except MySQLError as e:
+        raise HTTPException(status_code=500, detail=f"Database query error: {e}")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Unexpected error getting trainers: {e}")
+
 @router.get("/{auth_id_param}")
 def get_user_endpoint(auth_id_param: str, db_conn_cursor_tuple = Depends(get_db_cursor)):
     db_conn, cursor = db_conn_cursor_tuple
