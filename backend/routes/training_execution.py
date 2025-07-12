@@ -420,7 +420,7 @@ def delete_weekly_training_goal_route(goal_id: int, db_conn = Depends(get_db_con
         # Add authorization: member can delete their own goals, trainer/manager can delete any
         crud_exec.delete_weekly_training_goal(db_conn, cursor, goal_id)
         db_conn.commit()
-        return None
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
     except HTTPException:
         if db_conn: db_conn.rollback()
         raise
