@@ -339,65 +339,140 @@ def get_current_user_active_session_route(current_user: dict = Depends(get_curre
         print(f"Error checking active session: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error checking active session: {str(e)}")
 
-# === Training API Routes ===
-@training_router.get("/live/sessions/current")
-def get_current_user_active_training_session(request: Request, current_user: dict = Depends(get_current_user_data), db_conn_cursor = Depends(get_db_cursor)):
-    """Get the current user's active live session (matches frontend expectation)"""
-    db_conn, cursor = db_conn_cursor
-    
+
+# === Weekly Training Goals Routes ===
+@router.post("/weekly-training-goals", status_code=status.HTTP_201_CREATED)
+async def create_weekly_training_goal_route(request: Request, db_conn = Depends(get_db_connection)):
+    payload = await request.json()
+    cursor = None
     try:
-        user_type = current_user.get("user_type")
-        user_id = current_user.get("user_id")
-        
-        # Check for active live sessions based on user type
-        if user_type == "member":
-            member_id = current_user.get("member_id_pk")
-            if not member_id:
-                return None
-                
-            # Query for active live sessions where this member is participating
-            cursor.execute("""
-                SELECT ls.*, ws.hall_id, h.name as hall_name, 
-                       CONCAT(u.first_name, ' ', u.last_name) as trainer_name
-                FROM live_sessions ls
-                JOIN weekly_schedule ws ON ls.schedule_id = ws.schedule_id
-                JOIN halls h ON ws.hall_id = h.hall_id
-                JOIN trainers t ON ws.trainer_id = t.trainer_id
-                JOIN users u ON t.user_id = u.user_id
-                JOIN schedule_members sm ON ws.schedule_id = sm.schedule_id
-                WHERE sm.member_id = %s 
-                AND ls.status IN ('Active', 'In Progress')
-                ORDER BY ls.start_time DESC
-                LIMIT 1
-            """, (member_id,))
-            
-        elif user_type == "trainer":
-            trainer_id = current_user.get("trainer_id_pk")
-            if not trainer_id:
-                return None
-                
-            # Query for active live sessions where this trainer is conducting
-            cursor.execute("""
-                SELECT ls.*, ws.hall_id, h.name as hall_name,
-                       CONCAT(u.first_name, ' ', u.last_name) as trainer_name
-                FROM live_sessions ls
-                JOIN weekly_schedule ws ON ls.schedule_id = ws.schedule_id
-                JOIN halls h ON ws.hall_id = h.hall_id
-                JOIN trainers t ON ws.trainer_id = t.trainer_id
-                JOIN users u ON t.user_id = u.user_id
-                WHERE ws.trainer_id = %s 
-                AND ls.status IN ('Active', 'In Progress')
-                ORDER BY ls.start_time DESC
-                LIMIT 1
-            """, (trainer_id,))
-            
-        else:
-            # Manager or other user types don't have "active sessions" in the same way
-            return None
-            
-        active_session = cursor.fetchone()
-        return active_session  # Will be None if no active session found
-        
+        cursor = db_conn.cursor(dictionary=True)
+        # Add authorization: member can only create their own goals, or trainer/manager can create for members
+        new_goal = crud_exec.create_weekly_training_goal(db_conn, cursor, payload)
+        db_conn.commit()
+        return new_goal
+    except HTTPException:
+        if db_conn: db_conn.rollback()
+        raise
+    except MySQLError as e:
+        if db_conn: db_conn.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"DB error: {str(e)}")
     except Exception as e:
-        print(f"Error checking active session: {e}")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error checking active session: {str(e)}")
+        if db_conn: db_conn.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Unexpected error: {str(e)}")
+    finally:
+        if cursor: cursor.close()
+
+@router.get("/weekly-training-goals/{goal_id}")
+def get_weekly_training_goal_route(goal_id: int, db_conn_cursor = Depends(get_db_cursor)):
+    db_conn, cursor = db_conn_cursor
+    # Add authorization: member can view their own goals, trainer/manager can view all
+    return crud_exec.get_weekly_training_goal_by_id(db_conn, cursor, goal_id)
+
+@router.get("/members/{member_id}/weekly-training-goals")
+def get_member_weekly_training_goals_route(member_id: int, db_conn_cursor = Depends(get_db_cursor)):
+    db_conn, cursor = db_conn_cursor
+    # Add authorization: member can view their own goals, trainer/manager can view all
+    return crud_exec.get_weekly_training_goals_by_member_id(db_conn, cursor, member_id)
+
+@router.get("/members/{member_id}/weekly-training-goals/{week_start_date}")
+def get_member_weekly_training_goal_for_week_route(member_id: int, week_start_date: str, db_conn_cursor = Depends(get_db_cursor)):
+    db_conn, cursor = db_conn_cursor
+    # Add authorization: member can view their own goals, trainer/manager can view all
+    goal = crud_exec.get_weekly_training_goal_by_member_and_week(db_conn, cursor, member_id, week_start_date)
+    if not goal:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"No weekly training goal found for member {member_id} and week {week_start_date}")
+    return goal
+
+@router.get("/weekly-training-goals/week/{week_start_date}")
+def get_weekly_training_goals_for_week_route(week_start_date: str, db_conn_cursor = Depends(get_db_cursor)):
+    db_conn, cursor = db_conn_cursor
+    # Add authorization: only trainer/manager can view all goals for a week
+    return crud_exec.get_weekly_training_goals_by_week(db_conn, cursor, week_start_date)
+
+@router.put("/weekly-training-goals/{goal_id}")
+async def update_weekly_training_goal_route(goal_id: int, request: Request, db_conn = Depends(get_db_connection)):
+    payload = await request.json()
+    cursor = None
+    try:
+        cursor = db_conn.cursor(dictionary=True)
+        # Add authorization: member can update their own goals, trainer/manager can update any
+        updated_goal = crud_exec.update_weekly_training_goal(db_conn, cursor, goal_id, payload)
+        db_conn.commit()
+        return updated_goal
+    except HTTPException:
+        if db_conn: db_conn.rollback()
+        raise
+    except MySQLError as e:
+        if db_conn: db_conn.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"DB error: {str(e)}")
+    except Exception as e:
+        if db_conn: db_conn.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Unexpected error: {str(e)}")
+    finally:
+        if cursor: cursor.close()
+
+@router.delete("/weekly-training-goals/{goal_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_weekly_training_goal_route(goal_id: int, db_conn = Depends(get_db_connection)):
+    cursor = None
+    try:
+        cursor = db_conn.cursor(dictionary=True)
+        # Add authorization: member can delete their own goals, trainer/manager can delete any
+        crud_exec.delete_weekly_training_goal(db_conn, cursor, goal_id)
+        db_conn.commit()
+        return None
+    except HTTPException:
+        if db_conn: db_conn.rollback()
+        raise
+    except MySQLError as e:
+        if db_conn: db_conn.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"DB error: {str(e)}")
+    except Exception as e:
+        if db_conn: db_conn.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Unexpected error: {str(e)}")
+    finally:
+        if cursor: cursor.close()
+
+@router.post("/weekly-training-goals/upsert", status_code=status.HTTP_200_OK)
+async def upsert_weekly_training_goal_route(request: Request, db_conn = Depends(get_db_connection)):
+    """Insert or update a weekly training goal for a member and week"""
+    payload = await request.json()
+    cursor = None
+    try:
+        cursor = db_conn.cursor(dictionary=True)
+        # Add authorization: member can upsert their own goals, trainer/manager can upsert for any member
+        goal = crud_exec.upsert_weekly_training_goal(db_conn, cursor, payload)
+        db_conn.commit()
+        return goal
+    except HTTPException:
+        if db_conn: db_conn.rollback()
+        raise
+    except MySQLError as e:
+        if db_conn: db_conn.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"DB error: {str(e)}")
+    except Exception as e:
+        if db_conn: db_conn.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Unexpected error: {str(e)}")
+    finally:
+        if cursor: cursor.close()
+
+# Also add routes to the training_router for /training paths
+@training_router.post("/weekly-goals", status_code=status.HTTP_201_CREATED)
+async def create_weekly_training_goal_training_route(request: Request, db_conn = Depends(get_db_connection)):
+    return await create_weekly_training_goal_route(request, db_conn)
+
+@training_router.get("/weekly-goals/{goal_id}")
+def get_weekly_training_goal_training_route(goal_id: int, db_conn_cursor = Depends(get_db_cursor)):
+    return get_weekly_training_goal_route(goal_id, db_conn_cursor)
+
+@training_router.get("/members/{member_id}/weekly-goals")
+def get_member_weekly_training_goals_training_route(member_id: int, db_conn_cursor = Depends(get_db_cursor)):
+    return get_member_weekly_training_goals_route(member_id, db_conn_cursor)
+
+@training_router.get("/members/{member_id}/weekly-goals/{week_start_date}")
+def get_member_weekly_training_goal_for_week_training_route(member_id: int, week_start_date: str, db_conn_cursor = Depends(get_db_cursor)):
+    return get_member_weekly_training_goal_for_week_route(member_id, week_start_date, db_conn_cursor)
+
+@training_router.post("/weekly-goals/upsert", status_code=status.HTTP_200_OK)
+async def upsert_weekly_training_goal_training_route(request: Request, db_conn = Depends(get_db_connection)):
+    return await upsert_weekly_training_goal_route(request, db_conn)
