@@ -469,7 +469,7 @@ def show_custom_training_plan_form(user):
                         
                         # Send to backend
                         async with httpx.AsyncClient() as client:
-                            response = await client.post(f"http://127.0.0.1:8000/training-plans/custom", json=payload)
+                            response = await client.post(f"http://{API_HOST}:{API_PORT}/training-plans/custom", json=payload)
                             
                             if response.status_code == 201:
                                 ui.notify('Custom training plan created successfully!', color='green')
