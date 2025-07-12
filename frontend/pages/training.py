@@ -89,7 +89,7 @@ def show_detailed_training_plan(plan_id):
     """Show detailed training plan with days and exercises"""
     try:
         # Fetch detailed training plan data
-        response = requests.get(f"http://127.0.0.1:8000/training-plans/{plan_id}/detailed")
+        response = requests.get(f"http://{API_HOST}:{API_PORT}/training-plans/{plan_id}/detailed")
         if response.status_code != 200:
             ui.notify('Failed to load training plan details.', color='red')
             return
