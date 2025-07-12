@@ -242,7 +242,7 @@ def show_custom_training_plan_form(user):
         """Fetch available exercises for the form"""
         try:
             async with httpx.AsyncClient() as client:
-                response = await client.get(f"http://127.0.0.1:8000/training-plans/exercises")
+                response = await client.get(f"http://{API_HOST}:{API_PORT}/training-plans/exercises")
                 if response.status_code == 200:
                     return response.json()
                 else:
