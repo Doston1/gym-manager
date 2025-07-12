@@ -6,6 +6,7 @@ import asyncio
 import httpx
 from ..config import API_HOST, API_PORT
 from frontend.components.navbar import create_navbar_with_conditional_buttons, apply_page_style, get_current_user
+from frontend.components.weekly_goals import render_weekly_goals_section
 
 async def is_preference_day():
     # Simple check for Thursday (weekday 3)

@@ -3,6 +3,7 @@ from backend.database.base import get_db_cursor, get_db_connection
 from backend.database.crud import training_blueprints as crud_bp # Renamed for clarity
 from backend.auth import get_current_user_data  # Import the auth function
 from mysql.connector import Error as MySQLError
+from typing import Optional
 
 router = APIRouter(prefix="/training-blueprints", tags=["Training Blueprints"])
 
@@ -109,6 +110,12 @@ async def create_training_plan_route(request: Request, db_conn = Depends(get_db_
 def get_training_plan_route(plan_id: int, db_conn_cursor = Depends(get_db_cursor)):
     db_conn, cursor = db_conn_cursor
     return crud_bp.get_training_plan_by_id(db_conn, cursor, plan_id)
+
+@router.get("/plans/{plan_id}/detailed")
+def get_training_plan_detailed_route(plan_id: int, db_conn_cursor = Depends(get_db_cursor)):
+    """Get a training plan with all its days and exercises"""
+    db_conn, cursor = db_conn_cursor
+    return crud_bp.get_training_plan_detailed_by_id(db_conn, cursor, plan_id)
 
 @router.get("/plans")
 def get_all_training_plans_route(is_active: bool = None, trainer_id: int = None, db_conn_cursor = Depends(get_db_cursor)):
@@ -304,11 +311,136 @@ def remove_exercise_from_day_route(tde_id: int, db_conn = Depends(get_db_connect
         if cursor: cursor.close()
 
 # Route for frontend compatibility - maps /training-plans to the same functionality as /training-blueprints/plans
+@training_plans_router.post("/custom", status_code=status.HTTP_201_CREATED)
+async def create_custom_training_plan_route(request: Request, db_conn = Depends(get_db_connection)):
+    """Create a custom training plan with full details (plan, days, exercises) and custom plan request"""
+    payload = await request.json()
+    cursor = None
+    try:
+        cursor = db_conn.cursor(dictionary=True)
+        
+        # Start transaction
+        db_conn.start_transaction()
+        
+        # Extract main plan data
+        plan_data = payload.get('plan', {})
+        plan_data['is_custom'] = True  # Mark as custom
+        plan_data['created_by'] = payload.get('user_id')  # Set creator
+        
+        # Create the training plan
+        new_plan = crud_bp.create_training_plan(db_conn, cursor, plan_data)
+        plan_id = new_plan['plan_id']
+        
+        # Create training plan days if provided
+        days_data = payload.get('days', [])
+        created_days = []
+        
+        for day_data in days_data:
+            day_data['plan_id'] = plan_id
+            new_day = crud_bp.create_training_plan_day(db_conn, cursor, day_data)
+            day_id = new_day['day_id']
+            
+            # Create exercises for this day if provided
+            exercises_data = day_data.get('exercises', [])
+            created_exercises = []
+            
+            for exercise_data in exercises_data:
+                exercise_data['day_id'] = day_id
+                new_exercise = crud_bp.add_exercise_to_training_day(db_conn, cursor, exercise_data)
+                created_exercises.append(new_exercise)
+            
+            new_day['exercises'] = created_exercises
+            created_days.append(new_day)
+        
+        # Create custom plan request entry
+        request_data = {
+            'member_id': payload.get('member_id'),
+            'goal': payload.get('goal', plan_data.get('description', 'Custom training plan request')),
+            'days_per_week': plan_data.get('days_per_week'),
+            'focus_areas': plan_data.get('primary_focus'),
+            'equipment_available': plan_data.get('equipment_needed'),
+            'health_limitations': payload.get('health_limitations'),
+            'status': 'Completed',  # Since we're creating the plan immediately
+            'completed_plan_id': plan_id,
+            'notes': 'Custom plan created by member'
+        }
+        
+        # Import custom plan request creation function
+        from backend.database.crud import miscellaneous as crud_misc
+        custom_request = crud_misc.create_custom_plan_request(db_conn, cursor, request_data)
+        
+        # Commit transaction
+        db_conn.commit()
+        
+        # Return complete plan data
+        complete_plan = {
+            'plan': new_plan,
+            'days': created_days,
+            'custom_request': custom_request
+        }
+        
+        return complete_plan
+        
+    except HTTPException:
+        if db_conn: db_conn.rollback()
+        raise
+    except MySQLError as e:
+        if db_conn: db_conn.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"DB error: {str(e)}")
+    except Exception as e:
+        if db_conn: db_conn.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Unexpected error: {str(e)}")
+    finally:
+        if cursor: cursor.close()
+
+@training_plans_router.post("/", status_code=status.HTTP_201_CREATED)
+async def create_training_plan_frontend_route(request: Request, db_conn = Depends(get_db_connection)):
+    """Create a training plan - frontend compatible route"""
+    payload = await request.json()
+    cursor = None
+    try:
+        cursor = db_conn.cursor(dictionary=True)
+        new_plan = crud_bp.create_training_plan(db_conn, cursor, payload)
+        db_conn.commit()
+        return new_plan
+    except HTTPException:
+        if db_conn: db_conn.rollback()
+        raise
+    except MySQLError as e:
+        if db_conn: db_conn.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"DB error: {str(e)}")
+    except Exception as e:
+        if db_conn: db_conn.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Unexpected error: {str(e)}")
+    finally:
+        if cursor: cursor.close()
+
 @training_plans_router.get("/")
 def get_all_training_plans_frontend_route(is_active: bool = None, trainer_id: int = None, db_conn_cursor = Depends(get_db_cursor)):
     """Get all training plans - frontend compatible route"""
     db_conn, cursor = db_conn_cursor
     return crud_bp.get_all_training_plans(db_conn, cursor, is_active, trainer_id)
+
+@training_plans_router.get("/exercises")
+def get_all_exercises_frontend_route(is_active: Optional[bool] = None, db_conn_cursor = Depends(get_db_cursor)):
+    """Get all exercises for frontend forms"""
+    db_conn, cursor = db_conn_cursor
+    # Default to True if not specified to get only active exercises
+    if is_active is None:
+        is_active = True
+    return crud_bp.get_all_exercises(db_conn, cursor, is_active)
+
+@training_plans_router.get("/{plan_id}")
+def get_training_plan_frontend_route(plan_id: int, db_conn_cursor = Depends(get_db_cursor)):
+    """Get a training plan - frontend compatible route"""
+    db_conn, cursor = db_conn_cursor
+    return crud_bp.get_training_plan_by_id(db_conn, cursor, plan_id)
+
+@training_plans_router.get("/{plan_id}/detailed")
+def get_training_plan_detailed_frontend_route(plan_id: int, db_conn_cursor = Depends(get_db_cursor)):
+    """Get a training plan with all its days and exercises - frontend compatible route"""
+    db_conn, cursor = db_conn_cursor
+    return crud_bp.get_training_plan_detailed_by_id(db_conn, cursor, plan_id)
 
 @training_plans_router.get("/preferences/check")
 def check_training_preferences(current_user: dict = Depends(get_current_user_data), db_conn_cursor = Depends(get_db_cursor)):

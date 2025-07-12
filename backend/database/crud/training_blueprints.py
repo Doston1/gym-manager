@@ -98,6 +98,85 @@ def get_training_plan_by_id(db_conn, cursor, plan_id: int):
     except MySQLError as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"DB error: {str(e)}")
 
+def get_training_plan_detailed_by_id(db_conn, cursor, plan_id: int):
+    """Get a training plan with all its days and exercises"""
+    sql = get_sql("training_plans_get_detailed_by_id")
+    try:
+        cursor.execute(sql, (plan_id,))
+        rows = format_records(cursor.fetchall())
+        
+        if not rows:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Training plan ID {plan_id} not found.")
+        
+        # Structure the data
+        plan = {
+            'plan_id': rows[0]['plan_id'],
+            'title': rows[0]['title'],
+            'description': rows[0]['description'],
+            'difficulty_level': rows[0]['difficulty_level'],
+            'duration_weeks': rows[0]['duration_weeks'],
+            'days_per_week': rows[0]['days_per_week'],
+            'primary_focus': rows[0]['primary_focus'],
+            'secondary_focus': rows[0]['secondary_focus'],
+            'target_gender': rows[0]['target_gender'],
+            'min_age': rows[0]['min_age'],
+            'max_age': rows[0]['max_age'],
+            'equipment_needed': rows[0]['equipment_needed'],
+            'created_by': rows[0]['created_by'],
+            'is_custom': rows[0]['is_custom'],
+            'is_active': rows[0]['is_active'],
+            'created_at': rows[0]['created_at'],
+            'updated_at': rows[0]['updated_at'],
+            'days': []
+        }
+        
+        # Group by days
+        days_dict = {}
+        for row in rows:
+            if row['day_id']:  # Only if there are days
+                day_id = row['day_id']
+                if day_id not in days_dict:
+                    days_dict[day_id] = {
+                        'day_id': day_id,
+                        'day_number': row['day_number'],
+                        'name': row['day_name'],
+                        'focus': row['day_focus'],
+                        'description': row['day_description'],
+                        'duration_minutes': row['duration_minutes'],
+                        'calories_burn_estimate': row['calories_burn_estimate'],
+                        'exercises': []
+                    }
+                
+                # Add exercise if it exists
+                if row['exercise_id']:
+                    exercise = {
+                        'exercise_link_id': row['exercise_link_id'],
+                        'exercise_id': row['exercise_id'],
+                        'order': row['exercise_order'],
+                        'sets': row['sets'],
+                        'reps': row['reps'],
+                        'rest_seconds': row['rest_seconds'],
+                        'duration_seconds': row['duration_seconds'],
+                        'notes': row['exercise_notes'],
+                        'exercise_name': row['exercise_name'],
+                        'exercise_description': row['exercise_description'],
+                        'exercise_instructions': row['exercise_instructions'],
+                        'exercise_difficulty': row['exercise_difficulty'],
+                        'primary_muscle_group': row['primary_muscle_group'],
+                        'secondary_muscle_groups': row['secondary_muscle_groups'],
+                        'exercise_equipment': row['exercise_equipment'],
+                        'image_url': row['image_url'],
+                        'video_url': row['video_url']
+                    }
+                    days_dict[day_id]['exercises'].append(exercise)
+        
+        # Convert to list and sort by day number
+        plan['days'] = sorted(days_dict.values(), key=lambda x: x['day_number'])
+        
+        return plan
+    except MySQLError as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"DB error: {str(e)}")
+
 def get_all_training_plans(db_conn, cursor, is_active: bool = None, trainer_id: int = None):
     params = []
     base_sql = "SELECT plan_id, title, description, difficulty_level, duration_weeks, days_per_week, primary_focus, secondary_focus, target_gender, min_age, max_age, equipment_needed, created_by, is_custom, is_active, created_at, updated_at FROM training_plans"
