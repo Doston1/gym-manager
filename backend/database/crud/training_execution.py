@@ -354,3 +354,144 @@ def get_logged_workout_exercises_by_workout_id(db_conn, cursor, logged_workout_i
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"DB error: {str(e)}")
 
 # ... (update/delete for logged_workouts and logged_workout_exercises can be added if needed)
+
+
+# --- Weekly Training Goals Operations ---
+def get_weekly_training_goal_by_id(db_conn, cursor, goal_id: int):
+    sql = get_sql("weekly_training_goals_get_by_id")
+    try:
+        cursor.execute(sql, (goal_id,))
+        record = format_records(cursor.fetchone())
+        if not record:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Weekly training goal ID {goal_id} not found.")
+        return record
+    except MySQLError as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"DB error: {str(e)}")
+
+def get_weekly_training_goal_by_member_and_week(db_conn, cursor, member_id: int, week_start_date: str):
+    sql = get_sql("weekly_training_goals_get_by_member_and_week")
+    try:
+        cursor.execute(sql, {"member_id": member_id, "week_start_date": week_start_date})
+        record = format_records(cursor.fetchone())
+        return record  # Returns None if not found
+    except MySQLError as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"DB error: {str(e)}")
+
+def get_weekly_training_goals_by_member_id(db_conn, cursor, member_id: int):
+    sql = get_sql("weekly_training_goals_get_by_member_id")
+    try:
+        cursor.execute(sql, (member_id,))
+        return format_records(cursor.fetchall())
+    except MySQLError as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"DB error: {str(e)}")
+
+def get_weekly_training_goals_by_week(db_conn, cursor, week_start_date: str):
+    sql = get_sql("weekly_training_goals_get_by_week")
+    try:
+        cursor.execute(sql, (week_start_date,))
+        return format_records(cursor.fetchall())
+    except MySQLError as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"DB error: {str(e)}")
+
+def create_weekly_training_goal(db_conn, cursor, goal_data: dict):
+    required_fields = ["member_id", "week_start_date", "desired_sessions"]
+    optional_fields = ["priority_level", "notes"]
+    try:
+        validated_data = validate_payload(goal_data, required_fields, optional_fields)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+    # Set default values
+    validated_data.setdefault("priority_level", "Medium")
+    
+    # Validate desired_sessions range (1-7)
+    if not (1 <= validated_data["desired_sessions"] <= 7):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Desired sessions must be between 1 and 7.")
+
+    sql = get_sql("weekly_training_goals_create")
+    try:
+        cursor.execute(sql, validated_data)
+        new_goal_id = cursor.lastrowid
+        return get_weekly_training_goal_by_id(db_conn, cursor, new_goal_id)
+    except MySQLError as e:
+        if e.errno == 1452:  # FK constraint
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid member_id.")
+        if e.errno == 1062:  # Unique constraint (member_id, week_start_date)
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Weekly training goal already exists for this member and week.")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"DB error: {str(e)}")
+
+def update_weekly_training_goal(db_conn, cursor, goal_id: int, update_data: dict):
+    # Validate goal exists
+    existing_goal = get_weekly_training_goal_by_id(db_conn, cursor, goal_id)
+    
+    allowed_fields = ["desired_sessions", "priority_level", "notes"]
+    try:
+        validated_data = validate_payload(update_data, [], allowed_fields)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+    if not validated_data:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No valid fields to update.")
+
+    # Validate desired_sessions range if provided
+    if "desired_sessions" in validated_data:
+        if not (1 <= validated_data["desired_sessions"] <= 7):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Desired sessions must be between 1 and 7.")
+
+    # Build SET clause
+    set_clauses = []
+    params = {"goal_id": goal_id}
+    
+    for field, value in validated_data.items():
+        set_clauses.append(f"{field} = %({field})s")
+        params[field] = value
+    
+    set_clause_str = ", ".join(set_clauses)
+    sql = get_sql("weekly_training_goals_update_by_id").replace("{set_clauses}", set_clause_str)
+    
+    try:
+        cursor.execute(sql, params)
+        if cursor.rowcount == 0:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Weekly training goal ID {goal_id} not found.")
+        return get_weekly_training_goal_by_id(db_conn, cursor, goal_id)
+    except MySQLError as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"DB error: {str(e)}")
+
+def delete_weekly_training_goal(db_conn, cursor, goal_id: int):
+    # Validate goal exists
+    get_weekly_training_goal_by_id(db_conn, cursor, goal_id)
+    
+    sql = get_sql("weekly_training_goals_delete_by_id")
+    try:
+        cursor.execute(sql, (goal_id,))
+        if cursor.rowcount == 0:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Weekly training goal ID {goal_id} not found.")
+        return True
+    except MySQLError as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"DB error: {str(e)}")
+
+def upsert_weekly_training_goal(db_conn, cursor, goal_data: dict):
+    """Insert or update a weekly training goal for a member and week"""
+    required_fields = ["member_id", "week_start_date", "desired_sessions"]
+    optional_fields = ["priority_level", "notes"]
+    try:
+        validated_data = validate_payload(goal_data, required_fields, optional_fields)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+    # Set default values
+    validated_data.setdefault("priority_level", "Medium")
+    
+    # Validate desired_sessions range (1-7)
+    if not (1 <= validated_data["desired_sessions"] <= 7):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Desired sessions must be between 1 and 7.")
+
+    sql = get_sql("weekly_training_goals_upsert_by_member_and_week")
+    try:
+        cursor.execute(sql, validated_data)
+        # Get the updated/inserted record
+        return get_weekly_training_goal_by_member_and_week(db_conn, cursor, validated_data["member_id"], validated_data["week_start_date"])
+    except MySQLError as e:
+        if e.errno == 1452:  # FK constraint
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid member_id.")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"DB error: {str(e)}")
