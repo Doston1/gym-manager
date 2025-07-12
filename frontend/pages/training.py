@@ -66,7 +66,7 @@ async def training_page():
         # Main content area
         with ui.card().classes('flex-grow p-6 bg-gray-900 rounded-lg shadow-lg'):
             ui.label('Training Plans').classes('text-2xl font-bold text-center mb-4 text-blue-300')
-            response = requests.get("http://127.0.0.1:8000/training-plans")
+            response = requests.get(f"http://{API_HOST}:{API_PORT}/training-plans")
             plans = response.json() if response.status_code == 200 else []
 
             if is_manager:
@@ -219,7 +219,7 @@ def show_add_training_plan_form():
                 "max_age": int(max_age.value) if max_age.value else None,
                 "equipment_needed": equipment_needed.value,
             }
-            response = requests.post(f"http://127.0.0.1:8000/training-plans", json=data)
+            response = requests.post(f"http://{API_HOST}:{API_PORT}/training-plans", json=data)
             if response.status_code == 201:
                 ui.notify('Training plan added successfully!', color='green')
                 form_card.delete()
