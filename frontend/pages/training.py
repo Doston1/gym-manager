@@ -23,7 +23,6 @@ async def training_page():
     if user:
         # Fetch full user details from the backend
         user = await user_full_details(user)
-    # print("DEBUG: training_page.py User:", user)
     is_manager = user and user.get("user_type") == "manager"
     is_trainer = user and user.get("user_type") == "trainer"
     is_member = user and user.get("user_type") == "member"
@@ -69,11 +68,14 @@ async def training_page():
             response = requests.get(f"http://{API_HOST}:{API_PORT}/training-plans")
             plans = response.json() if response.status_code == 200 else []
 
+            if is_manager or is_trainer:
+                ui.button('Add a Training Plan', on_click=lambda: show_training_plan_form(user, is_custom=False)).classes('bg-green-500 text-white rounded-full hover:bg-green-600 transition-colors mb-4')
+            
             if is_manager:
-                ui.button('Add a Training Plan', on_click=show_add_training_plan_form).classes('bg-green-500 text-white rounded-full hover:bg-green-600 transition-colors mb-4')
+                ui.button('Add New Exercise', on_click=lambda: show_add_exercise_form(user)).classes('bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-colors mb-4')
             
             if is_member:
-                ui.button('Create Custom Training Plan', on_click=lambda: show_custom_training_plan_form(user)).classes('bg-purple-500 text-white rounded-full hover:bg-purple-600 transition-colors mb-4')
+                ui.button('Create Custom Training Plan', on_click=lambda: show_training_plan_form(user, is_custom=True)).classes('bg-purple-500 text-white rounded-full hover:bg-purple-600 transition-colors mb-4')
 
             if plans:
                 for plan in plans:
@@ -234,8 +236,8 @@ def show_add_training_plan_form():
         ui.button('Save', on_click=save_training_plan).classes('bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-colors mr-2')
         ui.button('Cancel', on_click=cancel).classes('bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors')
 
-def show_custom_training_plan_form(user):
-    """Show comprehensive form for members to create custom training plans"""
+def show_training_plan_form(user, is_custom=True):
+    """Show comprehensive form for creating training plans (both custom for members and public for managers/trainers)"""
     import asyncio
     
     async def fetch_exercises():
@@ -250,6 +252,14 @@ def show_custom_training_plan_form(user):
         except Exception as e:
             print(f"Error fetching exercises: {e}")
             return []
+    
+    # Determine theme colors and labels based on plan type
+    theme_color = 'purple' if is_custom else 'green'
+    theme_light = 'purple-300' if is_custom else 'green-300'
+    theme_medium = 'purple-600' if is_custom else 'green-600'
+    border_color = 'border-purple-500' if is_custom else 'border-green-500'
+    plan_type_label = 'Custom' if is_custom else 'Public'
+    header_text = f'Create Your {plan_type_label} Training Plan'
     
     # Create the dialog
     with ui.dialog().props('maximized') as dialog:
@@ -276,12 +286,12 @@ def show_custom_training_plan_form(user):
         with ui.card().classes('w-full h-full bg-gray-900 text-white overflow-auto p-6'):
             # Header
             with ui.row().classes('w-full items-center justify-between mb-6'):
-                ui.label('Create Your Custom Training Plan').classes('text-3xl font-bold text-purple-300')
+                ui.label(header_text).classes(f'text-3xl font-bold text-{theme_light}')
                 ui.button('Cancel', on_click=dialog.close).classes('bg-red-500 hover:bg-red-600 text-white px-4 py-2')
             
             # Plan basic info
             with ui.card().classes('mb-6 p-6 bg-white'):
-                ui.label('Plan Information').classes('text-xl font-bold text-purple-600 mb-4')
+                ui.label('Plan Information').classes(f'text-xl font-bold text-{theme_medium} mb-4')
                 
                 with ui.row().classes('w-full gap-4'):
                     title = ui.input('Plan Title').classes('flex-1').style('background-color: white; color: black;')
@@ -290,9 +300,13 @@ def show_custom_training_plan_form(user):
                 
                 description = ui.textarea('Plan Description').classes('w-full mt-4').style('background-color: white; color: black;')
                 
+                # Difficulty level options vary for public vs custom plans
+                difficulty_options = ['Beginner', 'Intermediate', 'Advanced'] if is_custom else ['Beginner', 'Intermediate', 'Advanced', 'All Levels']
+                default_difficulty = 'Beginner' if is_custom else 'All Levels'
+                
                 with ui.row().classes('w-full gap-4 mt-4'):
-                    difficulty_level = ui.select(['Beginner', 'Intermediate', 'Advanced'], 
-                                               label='Difficulty Level', value='Beginner').classes('flex-1').style('background-color: white; color: black;')
+                    difficulty_level = ui.select(difficulty_options, 
+                                               label='Difficulty Level', value=default_difficulty).classes('flex-1').style('background-color: white; color: black;')
                     primary_focus = ui.select(['Weight Loss', 'Muscle Gain', 'Endurance', 'Flexibility', 'Strength', 'General Fitness'], 
                                             label='Primary Focus', value='General Fitness').classes('flex-1').style('background-color: white; color: black;')
                     secondary_focus = ui.select(['Weight Loss', 'Muscle Gain', 'Endurance', 'Flexibility', 'Strength', 'General Fitness'], 
@@ -304,11 +318,15 @@ def show_custom_training_plan_form(user):
                     max_age = ui.number('Max Age', min=13, max=100).classes('w-32').style('background-color: white; color: black;')
                 
                 equipment_needed = ui.textarea('Equipment Needed').classes('w-full mt-4').style('background-color: white; color: black;')
-                health_limitations = ui.textarea('Health Limitations or Notes').classes('w-full mt-4').style('background-color: white; color: black;')
+                
+                # Health limitations field only for custom plans (members)
+                health_limitations = None
+                if is_custom:
+                    health_limitations = ui.textarea('Health Limitations or Notes').classes('w-full mt-4').style('background-color: white; color: black;')
             
             # Training Days Section
             with ui.card().classes('mb-6 p-6 bg-white'):
-                ui.label('Training Days').classes('text-xl font-bold text-purple-600 mb-4')
+                ui.label('Training Days').classes(f'text-xl font-bold text-{theme_medium} mb-4')
                 
                 # Container for training days
                 days_container = ui.column().classes('w-full gap-4')
@@ -318,7 +336,7 @@ def show_custom_training_plan_form(user):
                     day_number = len(training_days) + 1
                     
                     with days_container:
-                        with ui.card().classes('p-4 bg-white border-l-4 border-purple-500') as day_card:
+                        with ui.card().classes(f'p-4 bg-white border-l-4 {border_color}') as day_card:
                             # Day header
                             with ui.row().classes('w-full items-center justify-between mb-4'):
                                 ui.label(f'Day {day_number}').classes('text-lg font-bold text-cyan-600')
@@ -356,9 +374,9 @@ def show_custom_training_plan_form(user):
                                             exercise_order = ui.number('Order', value=len(day_exercises) + 1, min=1).classes('w-20').style('background-color: white; color: black;')
                                         
                                         with ui.row().classes('w-full gap-2 mb-2'):
-                                            sets = ui.number('Sets', value=3, min=1, max=20).classes('w-20').style('background-color: white; color: black;')
+                                            sets = ui.number('Sets', value=3 if is_custom else None, min=1, max=20).classes('w-20').style('background-color: white; color: black;')
                                             reps = ui.input('Reps (e.g., "8-12")').classes('w-32').style('background-color: white; color: black;')
-                                            rest_seconds = ui.number('Rest (seconds)', value=60, min=0, max=600).classes('w-32').style('background-color: white; color: black;')
+                                            rest_seconds = ui.number('Rest (seconds)', value=60 if is_custom else None, min=0, max=600).classes('w-32').style('background-color: white; color: black;')
                                             duration_seconds = ui.number('Duration (seconds)', min=0, max=600).classes('w-32').style('background-color: white; color: black;')
                                         
                                         exercise_notes = ui.input('Exercise Notes').classes('w-full').style('background-color: white; color: black;')
@@ -408,12 +426,23 @@ def show_custom_training_plan_form(user):
                         day['day_number'] = i + 1
                 
                 # Add day button
-                ui.button('Add Training Day', on_click=add_training_day).classes('bg-green-500 hover:bg-green-600 text-white px-4 py-2 mt-4')
+                button_color = 'bg-green-500 hover:bg-green-600' if is_custom else 'bg-cyan-500 hover:bg-cyan-600'
+                ui.button('Add Training Day', on_click=add_training_day).classes(f'{button_color} text-white px-4 py-2')
             
             # Action buttons
             with ui.row().classes('w-full justify-center gap-4 mt-6'):
-                async def save_custom_plan():
+                async def save_plan():
                     try:
+                        # Get trainer_id for managers/trainers (only for public plans)
+                        trainer_id = None
+                        if not is_custom:
+                            if user.get('user_type') == 'trainer':
+                                trainer_id = user.get('user_id')  # For trainers, trainer_id = user_id
+                            elif user.get('user_type') == 'manager':
+                                # For managers, we could either not set created_by or ask which trainer to assign it to
+                                # For now, let's allow managers to create plans without a specific trainer
+                                trainer_id = None
+                        
                         # Prepare plan data
                         plan_data = {
                             'title': title.value,
@@ -428,6 +457,13 @@ def show_custom_training_plan_form(user):
                             'max_age': int(max_age.value) if max_age.value else None,
                             'equipment_needed': equipment_needed.value
                         }
+                        
+                        # Add plan type specific fields
+                        if not is_custom:
+                            plan_data['is_custom'] = False  # This is a public plan
+                            plan_data['is_active'] = True
+                            plan_data['created_by'] = trainer_id
+                            print(f"Creating public plan with trainer_id: {trainer_id}")
                         
                         # Prepare days data
                         days_data = []
@@ -461,31 +497,163 @@ def show_custom_training_plan_form(user):
                         payload = {
                             'plan': plan_data,
                             'days': days_data,
-                            'user_id': user['user_id'],
-                            'member_id': user.get('member_id_pk'),
-                            'goal': plan_data['description'],
-                            'health_limitations': health_limitations.value
+                            'user_id': user['user_id']
                         }
+                        
+                        # Add custom plan specific fields
+                        if is_custom:
+                            payload['member_id'] = user.get('member_id_pk')
+                            payload['goal'] = plan_data['description']
+                            payload['health_limitations'] = health_limitations.value if health_limitations else None
+                        
+                        # Determine endpoint based on plan type
+                        endpoint = 'custom' if is_custom else 'public'
                         
                         # Send to backend
                         async with httpx.AsyncClient() as client:
-                            response = await client.post(f"http://{API_HOST}:{API_PORT}/training-plans/custom", json=payload)
+                            response = await client.post(f"http://{API_HOST}:{API_PORT}/training-plans/{endpoint}", json=payload)
                             
                             if response.status_code == 201:
-                                ui.notify('Custom training plan created successfully!', color='green')
+                                plan_type_msg = 'Custom' if is_custom else 'Public'
+                                ui.notify(f'{plan_type_msg} training plan created successfully!', color='green')
                                 dialog.close()
                                 # Refresh the page
                                 ui.navigate.to('/training-plans')
                             else:
                                 error_msg = response.text
-                                ui.notify(f'Failed to create custom plan: {error_msg}', color='red')
+                                ui.notify(f'Failed to create {plan_type_label.lower()} plan: {error_msg}', color='red')
                     
                     except Exception as e:
-                        print(f"Error saving custom plan: {e}")
-                        ui.notify('Error creating custom plan. Please try again.', color='red')
+                        print(f"Error saving {plan_type_label.lower()} plan: {e}")
+                        ui.notify(f'Error creating {plan_type_label.lower()} plan. Please try again.', color='red')
                 
-                ui.button('Create Custom Plan', 
-                         on_click=save_custom_plan).classes('bg-purple-500 hover:bg-purple-600 text-white px-6 py-3 text-lg')
+                # Create button with appropriate styling and text
+                create_button_text = f'Create {plan_type_label} Plan'
+                create_button_class = f'bg-{theme_color}-500 hover:bg-{theme_color}-600 text-white px-6 py-3 text-lg'
+                
+                ui.button(create_button_text, 
+                         on_click=save_plan).classes(create_button_class)
+                ui.button('Cancel', 
+                         on_click=dialog.close).classes('bg-gray-500 hover:bg-gray-600 text-white px-6 py-3 text-lg')
+    
+    dialog.open()
+
+def show_add_exercise_form(user):
+    """Show comprehensive form for managers to add new exercises to the database"""
+    
+    # Create the dialog
+    with ui.dialog().props('maximized') as dialog:
+        # Add custom CSS for form styling
+        ui.add_head_html('''
+            <style>
+                .q-menu .q-item {
+                    color: black !important;
+                    background-color: white !important;
+                }
+                .q-menu .q-item:hover {
+                    background-color: #f0f0f0 !important;
+                    color: black !important;
+                }
+                .q-select .q-field__native {
+                    color: black !important;
+                }
+                .q-field__label {
+                    color: #666 !important;
+                }
+            </style>
+        ''')
+        
+        with ui.card().classes('w-full h-full bg-gray-900 text-white overflow-auto p-6'):
+            # Header
+            with ui.row().classes('w-full items-center justify-between mb-6'):
+                ui.label('Add New Exercise').classes('text-3xl font-bold text-blue-300')
+                ui.button('Cancel', on_click=dialog.close).classes('bg-red-500 hover:bg-red-600 text-white px-4 py-2')
+            
+            # Exercise Information
+            with ui.card().classes('mb-6 p-6 bg-white'):
+                ui.label('Exercise Information').classes('text-xl font-bold text-blue-600 mb-4')
+                
+                # Basic Information
+                with ui.row().classes('w-full gap-4'):
+                    exercise_name = ui.input('Exercise Name *').classes('flex-1').style('background-color: white; color: black;')
+                    difficulty_level = ui.select(['Beginner', 'Intermediate', 'Advanced'], 
+                                               label='Difficulty Level', value='Beginner').classes('w-40').style('background-color: white; color: black;')
+                
+                # Muscle Groups
+                with ui.row().classes('w-full gap-4 mt-4'):
+                    primary_muscle_group = ui.select([
+                        'Chest', 'Back', 'Shoulders', 'Arms', 'Legs', 'Core', 'Full Body', 'Cardio'
+                    ], label='Primary Muscle Group *').classes('flex-1').style('background-color: white; color: black;')
+                    
+                    secondary_muscle_groups = ui.input('Secondary Muscle Groups (comma-separated)', placeholder='e.g., Triceps, Shoulders, Core').classes('flex-1').style('background-color: white; color: black;')
+                
+                # Equipment
+                with ui.row().classes('w-full gap-4 mt-4'):
+                    equipment_needed = ui.input('Equipment Needed', placeholder='e.g., Dumbbells, Barbell, Resistance Band, Bodyweight').classes('flex-1').style('background-color: white; color: black;')
+                    is_active = ui.checkbox('Active Exercise', value=True).classes('mt-4')
+                
+                # Description and Instructions
+                with ui.column().classes('w-full gap-4 mt-4'):
+                    description = ui.textarea('Exercise Description', placeholder='Brief description of the exercise and its benefits...').classes('w-full').style('background-color: white; color: black; min-height: 100px;')
+                    instructions = ui.textarea('Exercise Instructions', placeholder='Step-by-step instructions on how to perform the exercise correctly...').classes('w-full').style('background-color: white; color: black; min-height: 120px;')
+                
+                # Media URLs (Optional)
+                with ui.row().classes('w-full gap-4 mt-4'):
+                    image_url = ui.input('Image URL (optional)', placeholder='https://example.com/image.jpg').classes('flex-1').style('background-color: white; color: black;')
+                    video_url = ui.input('Video URL (optional)', placeholder='https://youtube.com/watch?v=...').classes('flex-1').style('background-color: white; color: black;')
+                
+                # Helper text
+                ui.label('* Required fields').classes('text-sm text-gray-500 mt-2')
+            
+            # Action buttons
+            with ui.row().classes('w-full justify-center gap-4 mt-6'):
+                async def save_exercise():
+                    try:
+                        # Validate required fields
+                        if not exercise_name.value or not exercise_name.value.strip():
+                            ui.notify('Exercise name is required', color='red')
+                            return
+                        
+                        if not primary_muscle_group.value:
+                            ui.notify('Primary muscle group is required', color='red')
+                            return
+                        
+                        # Prepare exercise data
+                        exercise_data = {
+                            'name': exercise_name.value.strip(),
+                            'description': description.value.strip() if description.value else None,
+                            'instructions': instructions.value.strip() if instructions.value else None,
+                            'difficulty_level': difficulty_level.value,
+                            'primary_muscle_group': primary_muscle_group.value,
+                            'secondary_muscle_groups': secondary_muscle_groups.value.strip() if secondary_muscle_groups.value else None,
+                            'equipment_needed': equipment_needed.value.strip() if equipment_needed.value else None,
+                            'image_url': image_url.value.strip() if image_url.value else None,
+                            'video_url': video_url.value.strip() if video_url.value else None,
+                            'is_active': is_active.value
+                        }
+                        
+                        # Send to backend
+                        async with httpx.AsyncClient() as client:
+                            response = await client.post(f"http://{API_HOST}:{API_PORT}/training-plans/exercises", json=exercise_data)
+                            
+                            if response.status_code == 201:
+                                ui.notify('Exercise created successfully!', color='green')
+                                dialog.close()
+                                # Refresh the page
+                                ui.navigate.to('/training-plans')
+                            else:
+                                error_msg = response.text
+                                if response.status_code == 409:
+                                    ui.notify('An exercise with this name already exists', color='red')
+                                else:
+                                    ui.notify(f'Failed to create exercise: {error_msg}', color='red')
+                    
+                    except Exception as e:
+                        print(f"Error saving exercise: {e}")
+                        ui.notify('Error creating exercise. Please try again.', color='red')
+                
+                ui.button('Create Exercise', 
+                         on_click=save_exercise).classes('bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 text-lg')
                 ui.button('Cancel', 
                          on_click=dialog.close).classes('bg-gray-500 hover:bg-gray-600 text-white px-6 py-3 text-lg')
     
