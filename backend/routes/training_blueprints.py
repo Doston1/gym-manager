@@ -336,12 +336,14 @@ async def create_custom_training_plan_route(request: Request, db_conn = Depends(
         created_days = []
         
         for day_data in days_data:
+            # Extract exercises data before adding to day_data
+            exercises_data = day_data.pop('exercises', [])
+            
             day_data['plan_id'] = plan_id
             new_day = crud_bp.create_training_plan_day(db_conn, cursor, day_data)
             day_id = new_day['day_id']
             
             # Create exercises for this day if provided
-            exercises_data = day_data.get('exercises', [])
             created_exercises = []
             
             for exercise_data in exercises_data:
@@ -495,3 +497,90 @@ def check_training_preferences(current_user: dict = Depends(get_current_user_dat
     except Exception as e:
         print(f"Error checking preferences: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error checking preferences: {str(e)}")
+
+@training_plans_router.post("/public", status_code=status.HTTP_201_CREATED)
+async def create_public_training_plan_route(request: Request, db_conn = Depends(get_db_connection)):
+    """Create a public training plan with full details (plan, days, exercises)"""
+    payload = await request.json()
+    cursor = None
+    try:
+        cursor = db_conn.cursor(dictionary=True)
+        
+        # Start transaction
+        db_conn.start_transaction()
+        
+        # Extract main plan data
+        plan_data = payload.get('plan', {})
+        plan_data['is_custom'] = False  # Mark as public
+        
+        # Create the training plan
+        new_plan = crud_bp.create_training_plan(db_conn, cursor, plan_data)
+        plan_id = new_plan['plan_id']
+        
+        # Create training plan days if provided
+        days_data = payload.get('days', [])
+        created_days = []
+        
+        for day_data in days_data:
+            # Extract exercises data before adding to day_data
+            exercises_data = day_data.pop('exercises', [])
+            
+            day_data['plan_id'] = plan_id
+            new_day = crud_bp.create_training_plan_day(db_conn, cursor, day_data)
+            day_id = new_day['day_id']
+            
+            # Create exercises for this day if provided
+            created_exercises = []
+            
+            for exercise_data in exercises_data:
+                exercise_data['day_id'] = day_id
+                new_exercise = crud_bp.add_exercise_to_training_day(db_conn, cursor, exercise_data)
+                created_exercises.append(new_exercise)
+            
+            new_day['exercises'] = created_exercises
+            created_days.append(new_day)
+        
+        # Commit transaction
+        db_conn.commit()
+        
+        # Return complete plan data
+        complete_plan = {
+            'plan': new_plan,
+            'days': created_days
+        }
+        
+        return complete_plan
+        
+    except HTTPException:
+        if db_conn: db_conn.rollback()
+        raise
+    except MySQLError as e:
+        if db_conn: db_conn.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"DB error: {str(e)}")
+    except Exception as e:
+        if db_conn: db_conn.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Unexpected error: {str(e)}")
+    finally:
+        if cursor: cursor.close()
+
+@training_plans_router.post("/exercises", status_code=status.HTTP_201_CREATED)
+async def create_exercise_frontend_route(request: Request, db_conn = Depends(get_db_connection)):
+    """Create an exercise - frontend compatible route"""
+    payload = await request.json()
+    cursor = None
+    try:
+        cursor = db_conn.cursor(dictionary=True)
+        new_exercise = crud_bp.create_exercise(db_conn, cursor, payload)
+        db_conn.commit()
+        return new_exercise
+    except HTTPException:
+        if db_conn: db_conn.rollback()
+        raise
+    except MySQLError as e:
+        if db_conn: db_conn.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"DB error: {str(e)}")
+    except Exception as e:
+        if db_conn: db_conn.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Unexpected error: {str(e)}")
+    finally:
+        if cursor: cursor.close()

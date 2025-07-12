@@ -35,8 +35,15 @@ def create_exercise(db_conn, cursor, exercise_data: dict):
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
+    # Set defaults for missing optional fields
     validated_data.setdefault("difficulty_level", "Beginner")
     validated_data.setdefault("is_active", True)
+    validated_data.setdefault("description", None)
+    validated_data.setdefault("instructions", None)
+    validated_data.setdefault("secondary_muscle_groups", None)
+    validated_data.setdefault("equipment_needed", None)
+    validated_data.setdefault("image_url", None)
+    validated_data.setdefault("video_url", None)
 
     sql = get_sql("exercises_create")
     try:
@@ -207,10 +214,17 @@ def create_training_plan(db_conn, cursor, plan_data: dict):
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
+    # Set defaults for missing optional fields
     validated_data.setdefault("difficulty_level", "All Levels")
     validated_data.setdefault("target_gender", "Any")
     validated_data.setdefault("is_custom", False)
     validated_data.setdefault("is_active", True)
+    validated_data.setdefault("description", None)
+    validated_data.setdefault("secondary_focus", None)
+    validated_data.setdefault("min_age", None)
+    validated_data.setdefault("max_age", None)
+    validated_data.setdefault("equipment_needed", None)
+    validated_data.setdefault("created_by", None)
 
     sql = get_sql("training_plans_create")
     try:
@@ -296,6 +310,13 @@ def create_training_plan_day(db_conn, cursor, day_data: dict):
         validated_data = validate_payload(day_data, required_fields, optional_fields)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    
+    # Set defaults for missing optional fields
+    validated_data.setdefault("name", None)
+    validated_data.setdefault("focus", None)
+    validated_data.setdefault("description", None)
+    validated_data.setdefault("duration_minutes", None)
+    validated_data.setdefault("calories_burn_estimate", None)
     
     get_training_plan_by_id(db_conn, cursor, validated_data['plan_id']) # Ensure parent plan exists
 
@@ -384,6 +405,13 @@ def add_exercise_to_training_day(db_conn, cursor, tde_data: dict):
         validated_data = validate_payload(tde_data, required_fields, optional_fields)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+    # Set defaults for missing optional fields
+    validated_data.setdefault("sets", None)
+    validated_data.setdefault("reps", None)
+    validated_data.setdefault("rest_seconds", None)
+    validated_data.setdefault("duration_seconds", None)
+    validated_data.setdefault("notes", None)
 
     get_training_plan_day_by_id(db_conn, cursor, validated_data['day_id'])
     get_exercise_by_id(db_conn, cursor, validated_data['exercise_id'])
