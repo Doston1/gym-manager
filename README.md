@@ -708,7 +708,7 @@ The frontend application will start at `http://127.0.0.1:8080`
 **Student**: Dostonbek Islambekov
 **Course**: Semester Project
 **Semester**: Third-Year Semester A  
-**Supervisor**: Roee Porane
+**Supervisor**: Roi Poranne
 
 **Project Repository**: [Repository URL]  
 **Live Demo**: [Demo URL if available]
