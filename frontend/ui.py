@@ -60,4 +60,4 @@ async def callback_page():
 if __name__ in {"__main__", "__mp_main__"}:
     if multiprocessing.current_process().name == "MainProcess":
         print("In ui.py")
-    ui.run(port=8080, title="GYMO", reload=True)
+    ui.run(port=8080, title="FitZone Elite", reload=True)
