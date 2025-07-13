@@ -23,8 +23,9 @@ async def get_current_user():
 
 def logout():
     """Logout user and clear token"""
-    ui.run_javascript("localStorage.removeItem('token'); location.reload();")
-    ui.navigate.to(f"http://{API_HOST}:{API_PORT}/logout")
+    # Clear token and redirect to home page
+    ui.run_javascript("localStorage.removeItem('token');")
+    ui.navigate.to('/')
 
 
 async def create_navbar(additional_buttons=None, show_user_menu=True):
@@ -48,7 +49,7 @@ async def create_navbar(additional_buttons=None, show_user_menu=True):
             print(f"Error fetching user details: {e}")
 
     with ui.header().classes('bg-transparent text-white p-4 flex justify-between items-center shadow-lg backdrop-blur-md'):
-        ui.label('Gym Manager').classes('text-2xl font-bold cursor-pointer hover:scale-105 transition-transform').on('click', lambda: ui.navigate.to('/'))
+        ui.label('FitZone Elite').classes('text-2xl font-bold cursor-pointer hover:scale-105 transition-transform').on('click', lambda: ui.navigate.to('/'))
         
         with ui.row().classes('gap-4'):
             # Standard navigation buttons
@@ -105,7 +106,7 @@ async def create_navbar_with_conditional_buttons(check_functions=None, show_user
             print(f"Error fetching user details: {e}")
 
     with ui.header().classes('bg-transparent text-white p-4 flex justify-between items-center shadow-lg backdrop-blur-md'):
-        ui.label('Gym Manager').classes('text-2xl font-bold cursor-pointer hover:scale-105 transition-transform').on('click', lambda: ui.navigate.to('/'))
+        ui.label('FitZone Elite').classes('text-2xl font-bold cursor-pointer hover:scale-105 transition-transform').on('click', lambda: ui.navigate.to('/'))
         
         with ui.row().classes('gap-4'):
             # Standard navigation buttons
