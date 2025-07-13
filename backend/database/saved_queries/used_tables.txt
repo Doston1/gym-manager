@@ -1,7 +1,7 @@
 -- ✅ EXISTING: Users table
 CREATE TABLE users (
     user_id INT AUTO_INCREMENT PRIMARY KEY,
-    firebase_uid VARCHAR(128) UNIQUE NOT NULL,
+    auth_id VARCHAR(128) UNIQUE NOT NULL,
     email VARCHAR(255) NOT NULL UNIQUE,
     first_name VARCHAR(100) NOT NULL,
     last_name VARCHAR(100) NOT NULL,

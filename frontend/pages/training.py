@@ -28,9 +28,9 @@ async def training_page():
     is_member = user and user.get("user_type") == "member"
 
     # Create a layout with sidebar and main content
-    with ui.row().classes('w-full p-4 gap-4'):
+    with ui.row().classes('w-full p-4 gap-4 flex-nowrap'):
         # Sidebar for navigation to training features
-        with ui.card().classes('w-64 bg-gray-900 rounded-lg shadow-lg'):
+        with ui.card().classes('w-64 flex-shrink-0 bg-gray-900 rounded-lg shadow-lg'):
             ui.label('Training Features').classes('text-xl font-bold text-center mb-4 text-blue-300')
             
             # Training plans link (current page)
@@ -63,29 +63,168 @@ async def training_page():
                     ui.label('2. Monitor all active training sessions').classes('text-sm text-gray-300')
 
         # Main content area
-        with ui.card().classes('flex-grow p-6 bg-gray-900 rounded-lg shadow-lg'):
-            ui.label('Training Plans').classes('text-2xl font-bold text-center mb-4 text-blue-300')
+        with ui.card().classes('flex-1 min-w-0 p-6 bg-gray-900 rounded-lg shadow-lg'):
+            # Header section
+            with ui.row().classes('w-full justify-between items-center mb-6'):
+                ui.label('Training Plans').classes('text-3xl font-bold text-blue-300')
+                
+                # Action buttons container
+                with ui.row().classes('gap-2'):
+                    if is_manager or is_trainer:
+                        ui.button('+ Add Training Plan', on_click=lambda: show_training_plan_form(user, is_custom=False)).classes(
+                            'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 '
+                            'text-white px-4 py-2 rounded-lg shadow-lg transform hover:scale-105 transition-all duration-200 '
+                            'font-semibold text-sm'
+                        )
+                    
+                    if is_manager:
+                        ui.button('+ Add Exercise', on_click=lambda: show_add_exercise_form(user)).classes(
+                            'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 '
+                            'text-white px-4 py-2 rounded-lg shadow-lg transform hover:scale-105 transition-all duration-200 '
+                            'font-semibold text-sm'
+                        )
+                    
+                    if is_member:
+                        ui.button('+ Create Custom Plan', on_click=lambda: show_training_plan_form(user, is_custom=True)).classes(
+                            'bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 '
+                            'text-white px-4 py-2 rounded-lg shadow-lg transform hover:scale-105 transition-all duration-200 '
+                            'font-semibold text-sm'
+                        )
+            
+            # Fetch training plans
             response = requests.get(f"http://{API_HOST}:{API_PORT}/training-plans")
             plans = response.json() if response.status_code == 200 else []
 
-            if is_manager or is_trainer:
-                ui.button('Add a Training Plan', on_click=lambda: show_training_plan_form(user, is_custom=False)).classes('bg-green-500 text-white rounded-full hover:bg-green-600 transition-colors mb-4')
-            
-            if is_manager:
-                ui.button('Add New Exercise', on_click=lambda: show_add_exercise_form(user)).classes('bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-colors mb-4')
-            
-            if is_member:
-                ui.button('Create Custom Training Plan', on_click=lambda: show_training_plan_form(user, is_custom=True)).classes('bg-purple-500 text-white rounded-full hover:bg-purple-600 transition-colors mb-4')
-
             if plans:
-                for plan in plans:
-                    with ui.card().classes('mb-2 p-4 bg-gray-800 rounded-lg shadow-md'):
-                        ui.label(f"{plan['title']}").classes('text-lg font-bold text-blue-300')
-                        ui.label(f"Duration: {plan['duration_weeks']} weeks").classes('text-gray-300')
-                        ui.label(f"Focus: {plan['primary_focus']}").classes('text-gray-300')
-                        ui.button('View Plan', on_click=lambda p=plan: show_detailed_training_plan(p['plan_id'])).classes('bg-cyan-500 text-white rounded-full hover:bg-cyan-600 transition-colors')
+                # Training plans container with 2-column grid layout
+                with ui.grid(columns=2).classes('w-full gap-4'):
+                    for plan in plans:
+                        with ui.card().classes(
+                            'p-6 bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 '
+                            'rounded-xl shadow-2xl hover:shadow-blue-500/20 transform hover:scale-102 '
+                            'transition-all duration-300'
+                        ):
+                            # Plan header
+                            with ui.row().classes('w-full justify-between items-start mb-4'):
+                                with ui.column().classes('flex-1'):
+                                    plan_title = plan.get('title', 'Untitled Plan')
+                                    ui.label(plan_title).classes('text-xl font-bold text-blue-300 mb-2')
+                                    
+                                    # Plan type badge
+                                    is_custom_plan = plan.get('is_custom', False)
+                                    plan_type = 'Custom' if is_custom_plan else 'Public'
+                                    plan_type_color = 'bg-purple-500' if is_custom_plan else 'bg-green-500'
+                                    ui.label(plan_type).classes(f'{plan_type_color} text-white px-3 py-1 rounded-full text-xs font-medium')
+                                
+                                # Difficulty badge
+                                difficulty = plan.get('difficulty_level', 'Unknown')
+                                difficulty_colors = {
+                                    'Beginner': 'bg-green-500',
+                                    'Intermediate': 'bg-yellow-500', 
+                                    'Advanced': 'bg-red-500',
+                                    'All Levels': 'bg-blue-500'
+                                }
+                                difficulty_color = difficulty_colors.get(difficulty, 'bg-gray-500')
+                                ui.label(difficulty).classes(f'{difficulty_color} text-white px-4 py-2 rounded-lg font-bold text-sm shadow-lg')
+                            
+                            # Plan details in organized sections
+                            with ui.column().classes('w-full space-y-3'):
+                                # Duration and focus
+                                with ui.row().classes('w-full items-center space-x-4'):
+                                    with ui.row().classes('items-center space-x-2'):
+                                        ui.icon('schedule').classes('text-cyan-400 text-lg')
+                                        duration_text = f"{plan.get('duration_weeks', 'N/A')} weeks"
+                                        ui.label(duration_text).classes('text-gray-300 font-medium')
+                                    
+                                    with ui.row().classes('items-center space-x-2'):
+                                        ui.icon('fitness_center').classes('text-orange-400 text-lg')
+                                        days_text = f"{plan.get('days_per_week', 'N/A')} days/week"
+                                        ui.label(days_text).classes('text-gray-300 font-medium')
+                                
+                                # Primary and secondary focus
+                                with ui.row().classes('w-full items-center space-x-4'):
+                                    with ui.row().classes('items-center space-x-2'):
+                                        ui.icon('target').classes('text-green-400 text-lg')
+                                        primary_focus = plan.get('primary_focus', 'General Fitness')
+                                        ui.label(f"Focus: {primary_focus}").classes('text-gray-300 font-medium')
+                                    
+                                    if plan.get('secondary_focus'):
+                                        with ui.row().classes('items-center space-x-2'):
+                                            ui.icon('add_circle').classes('text-blue-400 text-lg')
+                                            secondary_focus = plan.get('secondary_focus')
+                                            ui.label(f"+ {secondary_focus}").classes('text-gray-300 font-medium')
+                                
+                                # Target audience
+                                with ui.row().classes('w-full items-center space-x-4'):
+                                    if plan.get('target_gender') and plan['target_gender'] != 'Any':
+                                        with ui.row().classes('items-center space-x-2'):
+                                            ui.icon('person').classes('text-purple-400 text-lg')
+                                            ui.label(f"Target: {plan['target_gender']}").classes('text-gray-300 font-medium')
+                                    
+                                    if plan.get('min_age') or plan.get('max_age'):
+                                        with ui.row().classes('items-center space-x-2'):
+                                            ui.icon('cake').classes('text-pink-400 text-lg')
+                                            min_age = plan.get('min_age', 'No min')
+                                            max_age = plan.get('max_age', 'No max')
+                                            age_range = f"{min_age}-{max_age} years"
+                                            ui.label(f"Age: {age_range}").classes('text-gray-300 font-medium')
+                                
+                                # Description (if available)
+                                if plan.get('description'):
+                                    description = plan['description']
+                                    # Truncate long descriptions
+                                    if len(description) > 100:
+                                        description = description[:100] + "..."
+                                    with ui.row().classes('w-full items-start space-x-2'):
+                                        ui.icon('description').classes('text-yellow-400 text-lg mt-1')
+                                        ui.label(description).classes('text-gray-400 text-sm flex-1')
+                                
+                                # Equipment (if specified)
+                                if plan.get('equipment_needed'):
+                                    equipment = plan['equipment_needed']
+                                    if len(equipment) > 80:
+                                        equipment = equipment[:80] + "..."
+                                    with ui.row().classes('w-full items-start space-x-2'):
+                                        ui.icon('build').classes('text-red-400 text-lg mt-1')
+                                        ui.label(f"Equipment: {equipment}").classes('text-gray-400 text-sm flex-1')
+                            
+                            # Action buttons
+                            with ui.row().classes('w-full justify-between items-center mt-6 pt-4 border-t border-gray-700'):
+                                # Plan stats
+                                plan_id = plan.get('plan_id')
+                                with ui.row().classes('items-center space-x-4'):
+                                    ui.label(f"Plan ID: {plan_id}").classes('text-gray-500 text-xs')
+                                    if plan.get('created_at'):
+                                        created_date = plan['created_at'][:10]  # Extract date part
+                                        ui.label(f"Created: {created_date}").classes('text-gray-500 text-xs')
+                                
+                                # View button
+                                ui.button('View Details', on_click=lambda p=plan: show_detailed_training_plan(p['plan_id'])).classes(
+                                    'bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 '
+                                    'text-white px-6 py-2 rounded-lg font-semibold text-sm shadow-lg '
+                                    'transform hover:scale-105 transition-all duration-200'
+                                )
             else:
-                ui.label('No training plans available.').classes('text-center text-gray-500')
+                # No training plans available state
+                with ui.column().classes('w-full text-center py-20'):
+                    ui.icon('assignment').classes('text-gray-500 text-8xl mb-4')
+                    ui.label('No training plans available').classes('text-2xl text-gray-500 font-medium mb-2')
+                    ui.label('Create your first training plan to get started!').classes('text-gray-400')
+                    
+                    # Call-to-action buttons based on user type
+                    with ui.row().classes('justify-center gap-4 mt-6'):
+                        if is_manager or is_trainer:
+                            ui.button('Create Public Plan', on_click=lambda: show_training_plan_form(user, is_custom=False)).classes(
+                                'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 '
+                                'text-white px-8 py-3 rounded-lg font-semibold shadow-lg '
+                                'transform hover:scale-105 transition-all duration-200'
+                            )
+                        if is_member:
+                            ui.button('Create Custom Plan', on_click=lambda: show_training_plan_form(user, is_custom=True)).classes(
+                                'bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 '
+                                'text-white px-8 py-3 rounded-lg font-semibold shadow-lg '
+                                'transform hover:scale-105 transition-all duration-200'
+                            )
 
 def show_detailed_training_plan(plan_id):
     """Show detailed training plan with days and exercises"""
