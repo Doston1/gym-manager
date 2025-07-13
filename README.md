@@ -705,10 +705,10 @@ The frontend application will start at `http://127.0.0.1:8080`
 
 ## 📞 Project Information
 
-**Student**: [Your Name]  
-**Course**: [Course Name]  
-**Semester**: [Semester/Year]  
-**Supervisor**: [Professor Name]
+**Student**: Dostonbek Islambekov
+**Course**: Semester Project
+**Semester**: Third-Year Semester A  
+**Supervisor**: Roee Porane
 
 **Project Repository**: [Repository URL]  
 **Live Demo**: [Demo URL if available]
