@@ -169,7 +169,8 @@ def setup_auth_routes(api: FastAPI):
     async def logout(request: Request):
         ui_host = os.getenv("UI_HOST", "127.0.0.1")
         ui_port = os.getenv("UI_PORT", "8080")
-        logout_url = f"https://{AUTH0_DOMAIN}/v2/logout?client_id={AUTH0_CLIENT_ID}&returnTo=http://{ui_host}:{ui_port}&federated"
+        # Explicitly redirect to home page after logout
+        logout_url = f"https://{AUTH0_DOMAIN}/v2/logout?client_id={AUTH0_CLIENT_ID}&returnTo=http://{ui_host}:{ui_port}/&federated"
         return RedirectResponse(url=logout_url)
 
     @api.get("/me")

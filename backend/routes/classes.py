@@ -67,11 +67,10 @@ def delete_class_type_route(class_type_id: int, db_conn = Depends(get_db_connect
 
 # === Class Routes ===
 @router.get("/")
-def get_all_classes_route(detailed: bool = False, db_conn_cursor = Depends(get_db_cursor)):
+def get_all_classes_route(db_conn_cursor = Depends(get_db_cursor)):
     db_conn, cursor = db_conn_cursor
-    if detailed:
-        return crud_class.get_all_classes_detailed(db_conn, cursor)
-    return crud_class.get_all_classes(db_conn, cursor)
+    # Set detailed=True to get class names and other joined information
+    return crud_class.get_all_classes(db_conn, cursor, detailed=True)
 
 @router.get("/{class_id}")
 def get_class_route(class_id: int, detailed: bool = False, db_conn_cursor = Depends(get_db_cursor)):
